@@ -1,35 +1,40 @@
 // magia.js — descrições estilo D&D para TODAS as combinações
-// Não menciona dados. Não cita Volumen/lobos/fluxo.
-// Retorna um texto único para cada variação possível.
+// - Não menciona dados nem “qual dado faz o quê”
+// - Não cita Volumen/lobos/fluxo
+// - Considera: Buster = 1d10 (1 alvo), Quick = 1d6 por alvo (área), Arts = aplica efeito
+// - Gera texto único para cada combinação (Carta x Método x (Elemento se houver) x Escolha x Momento)
 
 (function () {
   const CARD = {
     quick: {
       label: "Quick",
-      baseDesc: "Magia em área, pode atingir vários alvos.",
       castLine: "Tempo de conjuração: 1 ação (consome 1 carta Quick)",
       reachLine: "Alcance: área na zona escolhida à vista",
       targetLine: "Alvos: múltiplas criaturas na área",
+      damageLine: "Dano: 1d6 por alvo",
+      roleLine: "Função: magia em área, acerta vários alvos.",
     },
     arts: {
       label: "Arts",
-      baseDesc: "Causa um efeito em um alvo.",
       castLine: "Tempo de conjuração: 1 ação (consome 1 carta Arts)",
       reachLine: "Alcance: à vista",
       targetLine: "Alvos: 1 criatura ou objeto",
+      damageLine: "Dano: —",
+      roleLine: "Função: aplica um efeito em um alvo.",
     },
     buster: {
       label: "Buster",
-      baseDesc: "Ataque focado em um alvo, direto e forte.",
       castLine: "Tempo de conjuração: 1 ação (consome 1 carta Buster)",
       reachLine: "Alcance: à vista",
       targetLine: "Alvos: 1 criatura",
+      damageLine: "Dano: 1d10",
+      roleLine: "Função: ataque focado em um alvo.",
     },
   };
 
   const ELEMENTS = ["Fogo", "Terra", "Água", "Ar", "Raio", "Luz"];
 
-  // Mantido pras tabelas no site
+  // Mantido para tabelas no site
   const D8 = [
     "Elemental clássico",
     "Alteração de propriedades físicas (densidade, atrito, dureza, pressão)",
@@ -41,7 +46,7 @@
     "Selo técnico (marca arcana que altera interações futuras)",
   ];
 
-  // Mantido pras tabelas no site (6 faces, 2 escolhas)
+  // Mantido para tabelas no site (6 faces, 2 escolhas cada)
   const D6 = [
     {
       pair: ["Segurança", "Alcance"],
@@ -75,7 +80,7 @@
     },
   ];
 
-  // Mantido pras tabelas no site
+  // Mantido para tabelas no site
   const D10 = [
     { name: "Eco", desc: "Se a magia acertar, o ataque se repete em outro alvo válido" },
     { name: "Janela", desc: "Se o alvo errar a próxima ação, sofre 1d6 de dano" },
@@ -89,101 +94,112 @@
     { name: "Clímax", desc: "Ignora todas as desvantagens atuais pra realização de uma magia eficaz" },
   ];
 
-  // ====== EFEITOS (sem mencionar dados) ======
-
-  // Tática (12 possibilidades). Chave = nome escolhido
+  // ===== Texto “tático” (12 escolhas)
   const TACTIC = new Map([
-    ["Segurança", "Você executa a magia por um ângulo seguro. Durante esta execução, uma reação inimiga contra essa magia é ignorada."],
-    ["Alcance", "Você estende o alcance prático do efeito. A magia alcança mais longe ou cobre uma zona maior do que o normal para esse tipo de conjuração."],
+    ["Segurança", "A execução é feita em um ângulo seguro. Durante esta conjuração, uma reação inimiga contra essa magia é ignorada."],
+    ["Alcance", "Você estende o alcance prático do efeito. A magia alcança mais longe ou cobre mais espaço do que o normal para esse tipo de conjuração."],
     ["Precisão", "Você refina o encaixe da fórmula. Seus testes de acerto relacionados a esta magia recebem +1."],
     ["Velocidade", "Você acelera a conjuração. Você pode se antecipar a alguém que agiria antes, ou reagir em uma janela que normalmente não existiria."],
-    ["Pressão", "Você impõe pressão arcana sobre o alvo. A próxima ação dele ocorre com desvantagem, quando fizer sentido na cena."],
-    ["Controle", "Você cria uma condição leve e prática: visão turva, deslocamento travado, conjuração atrapalhada ou movimento dificultado."],
-    ["Continuidade", "O efeito principal deixa um rastro estável. Quando fizer sentido, ele persiste por 1 turno adicional."],
-    ["Explosão", "Você descarrega tudo de uma vez. O efeito acontece de forma imediata e concentrada, sem sobras ou duração estendida."],
-    ["Adaptação", "Você ajusta o princípio no meio da execução. A magia muda de lógica de forma coerente com o que está acontecendo."],
-    ["Sinergia", "Você deixa a conjuração ‘aberta’ para uma sequência. O próximo aliado que agir ganha um bônus contextual, a critério do mestre."],
-    ["Marca", "Você deixa uma marca discreta no alvo. Em interações imediatas, aplicar efeitos nesse alvo se torna mais fácil."],
-    ["Recuperação", "Ao finalizar a conjuração, você recupera o ritmo e puxa uma carta adicional, respeitando o limite de 7 na mão."],
+    ["Pressão", "Você impõe pressão arcana. A próxima ação do alvo acontece com desvantagem, quando fizer sentido na cena."],
+    ["Controle", "Você cria uma condição leve: movimento dificultado, visão atrapalhada ou conjuração comprometida (coerente com a cena)."],
+    ["Continuidade", "O efeito deixa um rastro estável. Quando fizer sentido, ele persiste por 1 turno adicional."],
+    ["Explosão", "Você descarrega tudo de uma vez. O efeito acontece imediatamente e de forma concentrada, sem duração estendida."],
+    ["Adaptação", "Você ajusta a lógica da magia no meio da execução, mudando o princípio de forma coerente com a cena."],
+    ["Sinergia", "Você deixa a conjuração aberta para sequência. O próximo aliado que agir recebe um bônus contextual (a critério do mestre)."],
+    ["Marca", "Você deixa uma marca no alvo. Em interações imediatas, aplicar efeitos nesse alvo se torna mais fácil."],
+    ["Recuperação", "Ao finalizar a conjuração, você compra 1 carta adicional, respeitando o limite de 7 na mão."],
   ]);
 
-  // Momento (10 possibilidades)
+  // ===== Texto “momento” (10 variações)
   const MOMENT = new Map([
     ["Eco", "Se esta magia acertar, você pode repetir o mesmo efeito contra outro alvo válido dentro da área/alcance."],
-    ["Janela", "Você abre uma falha por um instante. Se o alvo errar a próxima ação, ele sofre dano extra (1d6)."],
-    ["Quebra", "A magia mira a sustentação do alvo. Uma proteção, buff ou preparação ativa pode ser removida."],
-    ["Reação", "Você prepara uma segunda resposta. Se você for atacado e sua primeira reação falhar, você pode tentar reagir novamente."],
+    ["Janela", "Você abre uma falha por um instante. Se o alvo errar a próxima ação, ele sofre 1d6 de dano adicional."],
+    ["Quebra", "A magia mira o suporte do efeito. Uma proteção, buff ou preparação ativa do alvo pode ser removida."],
+    ["Reação", "Você prepara uma segunda resposta. Se sua primeira reação falhar ao sofrer um ataque, você pode tentar reagir novamente."],
     ["Presságio", "Ao fim, você lê a próxima possibilidade: olhe a próxima carta do seu deck e decida manter ou trocar."],
-    ["Ancoragem", "Você ancora o princípio usado. Até o próximo turno, esse mesmo estilo de magia pode ser escolhido em vez de rolado."],
+    ["Ancoragem", "Você ancora o estilo usado. Até o próximo turno, esse mesmo estilo pode ser escolhido em vez de rolado."],
     ["Deslocamento", "A execução força reposicionamento. Você ou o alvo é deslocado de forma relevante e instantânea, coerente com a cena."],
-    ["Amplificação Narrativa", "O efeito reverbera no ambiente: luz, ruído, impacto, distração ou colapso leve. Isso concede vantagem situacional quando fizer sentido."],
-    ["Combo", "Você deixa a conjuração em cadeia. Se no próximo turno usar uma carta diferente, ganha bônus de dano ou de efeito, a critério do mestre."],
-    ["Clímax", "Você força a execução perfeita. Você ignora desvantagens atuais na realização desta magia, desde que ainda seja possível conjurá-la."],
+    ["Amplificação Narrativa", "O efeito reverbera no ambiente (luz, ruído, impacto, distração). Isso concede vantagem situacional quando fizer sentido."],
+    ["Combo", "Você deixa a magia em cadeia. Se no próximo turno usar uma carta diferente, ganha bônus de dano ou de efeito (a critério do mestre)."],
+    ["Clímax", "Você força uma execução limpa. Você ignora desvantagens atuais na realização desta magia, desde que ainda seja possível conjurá-la."],
   ]);
 
-  // Método (8) — varia por carta. Elemental usa elemento.
+  function shortMethodName(methodIndex, elementLabel) {
+    if (methodIndex === 1) return `${elementLabel} (Elemental)`;
+    return D8[methodIndex - 1].split(" (")[0];
+  }
+
+  // “Como a magia se comporta”, separado por carta e método, sem citar dados.
   function methodEffect(cardKey, methodIndex, elementLabel) {
     const c = cardKey;
 
+    // 1) Elemental clássico
     if (methodIndex === 1) {
-      const elName = elementLabel || "Elemento";
-      const elLower = elName.toLowerCase();
+      const el = elementLabel || "Elemento";
+      const elLower = el.toLowerCase();
 
       if (c === "quick") {
-        return `Você transforma a zona em um fenômeno de ${elLower}. Uma onda elemental varre a área, atingindo todos os alvos dentro dela com o mesmo tipo de energia.`;
+        return `Você cobre a zona com um fenômeno de ${elLower}. A área é varrida por um mesmo tipo de energia, causando o dano padrão da carta em cada alvo atingido.`;
       }
       if (c === "arts") {
-        return `Você injeta um fenômeno de ${elLower} diretamente no alvo, impondo uma condição coerente com a natureza desse elemento.`;
+        return `Você injeta ${elLower} no alvo para impor uma condição coerente com o elemento (queimadura, congelamento, choque, cegueira por clarão, etc.).`;
       }
-      return `Você concentra ${elLower} em um único impacto. O golpe atinge um alvo com força direta e um efeito elemental curto e brutal.`;
+      return `Você concentra ${elLower} em um único impacto direto, causando o dano padrão da carta em um alvo e deixando um efeito curto coerente com o elemento.`;
     }
 
+    // 2) Alteração de propriedades físicas
     if (methodIndex === 2) {
-      if (c === "quick") return "Você altera densidade, atrito e pressão em uma zona, tornando o espaço instável. Movimentação e postura ficam mais difíceis para quem estiver dentro.";
-      if (c === "arts")  return "Você altera uma propriedade física no alvo (densidade, atrito, dureza ou pressão), impondo uma limitação prática e coerente com a cena.";
-      return "Você distorce as propriedades no instante do impacto. O ataque atravessa resistência como se a matéria mudasse de regra por um segundo.";
+      if (c === "quick") return "Você altera densidade, atrito e pressão na área. O terreno e o ar se tornam hostis ao movimento, e os alvos sofrem o dano padrão da carta ao serem atingidos pelo colapso físico local.";
+      if (c === "arts")  return "Você altera uma propriedade física do alvo (densidade, atrito, dureza ou pressão), impondo uma limitação prática e coerente com a cena.";
+      return "Você distorce as propriedades no instante do impacto. O ataque ignora parte da resistência no contato e causa o dano padrão da carta em um único alvo.";
     }
 
+    // 3) Energia
     if (methodIndex === 3) {
-      if (c === "quick") return "Você libera pulsos de energia pela área. Eles podem empurrar, queimar, eletrificar ou causar impacto cinético de forma distribuída.";
-      if (c === "arts")  return "Você aplica um pulso de energia controlada no alvo, com foco em efeito: paralisar, empurrar, queimar ou desorganizar o corpo.";
-      return "Você condensa energia pura e libera em um disparo curto e direto, feito para derrubar um único alvo com impacto imediato.";
+      if (c === "quick") return "Você libera pulsos de energia pela área. Cada alvo atingido sofre o dano padrão da carta, com impacto que pode empurrar, queimar ou eletrificar de forma coerente com a cena.";
+      if (c === "arts")  return "Você aplica um pulso de energia controlada para impor um efeito: paralisar, empurrar, atordoar leve ou desorganizar o corpo por um instante.";
+      return "Você condensa energia pura e libera em um disparo curto e direto, causando o dano padrão da carta em um único alvo com impacto imediato.";
     }
 
+    // 4) Interferência mágica
     if (methodIndex === 4) {
-      if (c === "quick") return "Você espalha ruído arcano na área. Conjurações, selos e preparações dentro da zona sofrem distorção e ficam mais difíceis de sustentar.";
-      if (c === "arts")  return "Você injeta distorção na fórmula do alvo. Efeitos ativos ficam instáveis e tentativas de manter magia podem falhar.";
-      return "Você atinge o ponto de sustentação do alvo e rompe a fórmula no impacto, como um golpe que ‘desliga’ uma proteção no exato momento.";
+      if (c === "quick") return "Você espalha ruído arcano na área. Conjurações e preparações dentro da zona ficam instáveis, e os alvos atingidos sofrem o dano padrão da carta como retorno da distorção.";
+      if (c === "arts")  return "Você injeta distorção na fórmula do alvo. Efeitos ativos ficam instáveis e manter magia pode se tornar mais difícil.";
+      return "Você rompe o ponto de sustentação no impacto, causando o dano padrão da carta e abrindo espaço para quebrar uma proteção no momento certo.";
     }
 
+    // 5) Materialização temporária
     if (methodIndex === 5) {
-      if (c === "quick") return "Você cria estruturas efêmeras em pontos-chave (grades, estacas, paredes finas). Elas moldam a área e limitam rotas por um instante.";
-      if (c === "arts")  return "Você materializa um objeto breve e preciso (grilhão, obstáculo, trava). Ele se forma junto ao alvo para restringir ou forçar uma resposta.";
-      return "Você materializa um projétil ou lâmina efêmera no instante do ataque, ampliando o impacto como se a magia virasse metal por um segundo.";
+      if (c === "quick") return "Você cria estruturas efêmeras em pontos-chave (grades, estacas, paredes finas). Quem for atingido sofre o dano padrão da carta e pode ter rotas cortadas por um instante.";
+      if (c === "arts")  return "Você materializa um objeto breve e preciso (grilhão, obstáculo, trava) junto ao alvo para restringir ou forçar uma resposta.";
+      return "Você materializa um projétil ou lâmina efêmera no instante do ataque, causando o dano padrão da carta em um alvo com impacto concentrado.";
     }
 
+    // 6) Ressonância
     if (methodIndex === 6) {
-      if (c === "quick") return "Você dispara uma vibração instável pela área. Postura, foco e sustentação de efeitos tremem, como se tudo estivesse fora de sintonia.";
-      if (c === "arts")  return "Você sintoniza uma frequência no alvo. Corpo e magia entram em desalinho por um momento, reduzindo controle e estabilidade.";
-      return "Você cria ressonância no ponto de impacto. O dano aparece como choque interno, curto e difícil de amortecer.";
+      if (c === "quick") return "Você dispara vibrações pela área. A estabilidade de postura e foco é abalada, e os alvos atingidos sofrem o dano padrão da carta como choque interno e tremor.";
+      if (c === "arts")  return "Você sintoniza uma frequência no alvo, causando desalinho momentâneo: controle pior, foco quebrado ou sustentação enfraquecida.";
+      return "Você cria ressonância no ponto de impacto, causando o dano padrão da carta como um choque interno curto e difícil de amortecer.";
     }
 
+    // 7) Vetor
     if (methodIndex === 7) {
-      if (c === "quick") return "Você altera vetores no campo: empurrões, desvios e redirecionamentos. A área vira um lugar onde força e direção mudam de forma traiçoeira.";
-      if (c === "arts")  return "Você altera o vetor do alvo e provoca reposicionamento, quebra de postura ou abertura de guarda.";
-      return "Você converte o impacto em impulso bruto. O golpe arremessa, derruba ou desloca o alvo de forma agressiva.";
+      if (c === "quick") return "Você altera vetores no campo. A área vira um lugar onde força e direção mudam de forma traiçoeira; os alvos atingidos sofrem o dano padrão da carta e podem ser empurrados ou desviados.";
+      if (c === "arts")  return "Você muda o vetor do alvo, provocando reposicionamento, quebra de postura ou abertura de guarda.";
+      return "Você converte o impacto em impulso bruto, causando o dano padrão da carta e deslocando o alvo de forma agressiva.";
     }
 
+    // 8) Selo técnico
     if (methodIndex === 8) {
-      if (c === "quick") return "Você espalha marcas técnicas no terreno. Por um curto período, a área passa a reagir diferente a movimento e magia, criando armadilhas de regra.";
-      if (c === "arts")  return "Você grava um selo técnico no alvo. Isso cria uma regra temporária que muda como ele reage a magia, deslocamento ou defesa.";
-      return "Você crava um selo no impacto. O golpe deixa uma marca que altera o próximo momento do alvo, abrindo vantagem para a sequência.";
+      if (c === "quick") return "Você espalha marcas técnicas no terreno. A área reage diferente a movimento e magia por um curto período; quem for atingido sofre o dano padrão da carta e pode acionar uma dessas ‘regras’ locais.";
+      if (c === "arts")  return "Você grava um selo técnico no alvo, criando uma regra temporária que muda como ele reage a magia, deslocamento ou defesa.";
+      return "Você crava um selo no impacto, causando o dano padrão da carta e deixando uma marca que altera a próxima interação do alvo.";
     }
 
-    return "Você realiza um efeito mágico coerente com a cena.";
+    return "Você realiza um efeito coerente com a cena.";
   }
 
-  // ====== PRÉ-GERAÇÃO: “um texto para cada variação possível” ======
+  // ====== Pré-geração de TODAS as combinações ======
 
   const SPELLBOOK = new Map();
 
@@ -192,34 +208,29 @@
     return `${cardKey}|${methodIndex}|${el}|${tacticName}|${momentName}`;
   }
 
-  function shortMethodName(methodIndex, elementLabel) {
-    if (methodIndex === 1) return `${elementLabel} (Elemental)`;
-    return D8[methodIndex - 1].split(" (")[0]; // só o começo
-  }
-
   function buildSpell(cardKey, methodIndex, elementLabel, tacticName, momentName) {
     const card = CARD[cardKey];
 
-    const title = `${shortMethodName(methodIndex, elementLabel)} — ${card.label} — ${tacticName} — ${momentName}`;
+    const title = `${card.label} — ${shortMethodName(methodIndex, elementLabel)} — ${tacticName} — ${momentName}`;
 
-    const effectMain = methodEffect(cardKey, methodIndex, elementLabel);
-    const effectTac  = TACTIC.get(tacticName) || "Você obtém um ajuste tático coerente com a cena.";
-    const effectMom  = MOMENT.get(momentName) || "O efeito ganha um detalhe especial coerente com a cena.";
-
-    const text = [
+    const body = [
+      card.roleLine,
       card.castLine,
       card.reachLine,
       card.targetLine,
+      card.damageLine,
       "",
-      "Descrição:",
-      effectMain,
+      "Efeito:",
+      methodEffect(cardKey, methodIndex, elementLabel),
       "",
-      effectTac,
+      "Ajuste:",
+      (TACTIC.get(tacticName) || "Você obtém um ajuste coerente com a cena."),
       "",
-      effectMom,
+      "Detalhe:",
+      (MOMENT.get(momentName) || "O efeito ganha um detalhe especial coerente com a cena."),
     ].join("\n");
 
-    return { summary: title, text };
+    return { summary: title, text: body };
   }
 
   const ALL_TACTICS = [
@@ -269,24 +280,34 @@
 
     generate({ cardKey, methodIndex, elementLabel, d6ChoiceName, d10Index }) {
       const momentName = D10[d10Index - 1]?.name || "—";
-      const tac = d6ChoiceName || "—";
+      const tacticName = d6ChoiceName || "—";
       const el = (methodIndex === 1) ? (elementLabel || "—") : "—";
 
-      const k = keyOf(cardKey, methodIndex, el, tac, momentName);
+      const k = keyOf(cardKey, methodIndex, el, tacticName, momentName);
       const found = SPELLBOOK.get(k);
 
-      // fallback (não deveria acontecer)
       if (!found) {
+        const card = CARD[cardKey] || {
+          label: "Carta",
+          castLine: "Tempo de conjuração: 1 ação",
+          reachLine: "Alcance: à vista",
+          targetLine: "Alvos: conforme a carta",
+          damageLine: "Dano: —",
+          roleLine: "",
+        };
+
         return {
-          summary: `${CARD[cardKey]?.label || "Carta"} — magia`,
+          summary: `${card.label} — magia`,
           text: [
-            "Tempo de conjuração: 1 ação",
-            "Alcance: à vista",
-            "Alvos: conforme a carta",
+            card.roleLine,
+            card.castLine,
+            card.reachLine,
+            card.targetLine,
+            card.damageLine,
             "",
-            "Descrição:",
+            "Efeito:",
             methodEffect(cardKey, methodIndex, elementLabel),
-          ].join("\n"),
+          ].filter(Boolean).join("\n"),
         };
       }
 

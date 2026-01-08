@@ -447,6 +447,25 @@ details summary{
   white-space: pre-line;
 }
 
+.handLimitControl{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:10px;
+}
+.handLimitControl label{
+  opacity:.85;
+  font-size:14px;
+}
+.handLimitControl input{
+  width:72px;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.06);
+  border:1px solid rgba(255,255,255,.12);
+  color:#fff;
+  outline:none;
+}
 
 /* Escolha do d6: botões com título + descrição */
 .choiceBtn{

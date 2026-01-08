@@ -85,6 +85,7 @@
       <h2>2) Girar dados</h2>
       <p class="muted">
         Depois de puxar a carta, clique em “Girar dados”. O d6 exige escolha entre duas opções.
+        Se o d8 cair em “Elemental clássico”, um d6 extra define o elemento.
       </p>
 
       <div class="panel">
@@ -101,6 +102,11 @@
             <div class="dieLabel">d10</div>
             <div id="die10" class="die">—</div>
           </div>
+
+          <div id="dieElemBox" class="dieBox hidden">
+            <div class="dieLabel">d6 (elemento)</div>
+            <div id="dieElem" class="die">—</div>
+          </div>
         </div>
 
         <div class="controls">
@@ -109,6 +115,12 @@
 
         <div id="d6Choice" class="choice hidden">
           <h3>Escolha do d6</h3>
+
+          <div id="preChoiceInfo" class="preChoiceInfo">
+            <div class="preTitle">Resultados antes da escolha:</div>
+            <div class="preLines" id="preLines">Role os dados para ver.</div>
+          </div>
+
           <p class="muted" id="d6ChoiceHint">Role o d6 para aparecerem as opções.</p>
 
           <div class="choiceGrid">
@@ -148,6 +160,10 @@
             <div class="k">d10</div>
             <div class="v" id="outD10">—</div>
           </div>
+          <div class="detail">
+            <div class="k">Elemento</div>
+            <div class="v" id="outElem">—</div>
+          </div>
         </div>
 
         <div class="note">
@@ -157,9 +173,9 @@
     </section>
 
     <section class="panel">
-      <h2>Regras do Sebastian (texto do personagem)</h2>
+      <h2>Regras do Sebastian (tabelas para consulta)</h2>
       <p class="muted">
-        O texto abaixo é o mesmo que você já definiu para o personagem (resumo em formato de simulador).
+        Exibição das tabelas (d8, d6, d10) conforme a versão final definida para o personagem.
       </p>
 
       <details>

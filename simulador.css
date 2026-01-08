@@ -219,6 +219,25 @@ h3{margin:10px 0 8px}
 
 .choice{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)}
 .hidden{display:none}
+
+.preChoiceInfo{
+  margin:10px 0 12px;
+  padding:12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(28,28,38,.45);
+}
+.preTitle{
+  font-weight:900;
+  color: rgba(255,255,255,.85);
+  margin-bottom:6px;
+}
+.preLines{
+  color: rgba(255,255,255,.70);
+  font-size:13px;
+  white-space:pre-line;
+}
+
 .choiceGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 @media (max-width: 700px){.choiceGrid{grid-template-columns:1fr}}
 
@@ -239,10 +258,9 @@ h3{margin:10px 0 8px}
 
 .resultDetails{
   display:grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap:10px;
 }
-@media (max-width: 900px){.resultDetails{grid-template-columns:1fr 1fr}}
 .detail{
   border:1px solid rgba(255,255,255,.08);
   border-radius:14px;

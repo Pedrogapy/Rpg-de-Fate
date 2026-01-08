@@ -1,5 +1,5 @@
 // ============================================================
-// Config (fiel ao texto final do usuário)
+// Config (fiel ao texto final do usuário) + regra extra do elemento
 // ============================================================
 
 const CARD_TYPES = [
@@ -17,6 +17,16 @@ const D8_METHODS = [
   "Ressonância (vibração, frequência, desestabilização interna)",
   "Vetor (direcionamento, impulso, redirecionamento de força)",
   "Selo técnico (marca arcana que altera interações futuras)",
+];
+
+// Elementos quando d8 = Elemental clássico (1)
+const ELEMENTS_D6 = [
+  "Fogo",
+  "Terra",
+  "Água",
+  "Ar",
+  "Raio",
+  "Luz",
 ];
 
 // d6: cada número -> duas opções (nome + descrição), exatamente como no texto
@@ -77,6 +87,7 @@ let state = {
   d6Pick: null,     // "A" or "B"
   d8: null,         // number 1..8
   d10: null,        // number 1..10
+  elem: null,       // number 1..6 (apenas quando d8==1)
 };
 
 // ============================================================
@@ -92,6 +103,15 @@ function randInt(min, maxInclusive){
 function setText(el, text){
   if (!el) return;
   el.textContent = text;
+}
+
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
 }
 
 // ============================================================
@@ -184,8 +204,12 @@ const die6 = $("die6");
 const die8 = $("die8");
 const die10 = $("die10");
 
+const dieElemBox = $("dieElemBox");
+const dieElem = $("dieElem");
+
 const d6Choice = $("d6Choice");
 const d6ChoiceHint = $("d6ChoiceHint");
+const preLines = $("preLines");
 const optA = $("optA");
 const optB = $("optB");
 
@@ -195,6 +219,7 @@ const outCard = $("outCard");
 const outD8 = $("outD8");
 const outD6 = $("outD6");
 const outD10 = $("outD10");
+const outElem = $("outElem");
 
 // tables
 const tableD8 = $("tableD8");
@@ -202,7 +227,7 @@ const tableD6 = $("tableD6");
 const tableD10 = $("tableD10");
 
 // ============================================================
-// Render tables (para consulta)
+// Render tables
 // ============================================================
 
 function renderTables(){
@@ -229,7 +254,6 @@ function renderTables(){
     for (let i=1;i<=6;i++){
       const row = D6_CHOICES[i];
       const wrap = document.createElement("div");
-      wrap.className = "d6row";
       wrap.style.marginBottom = "10px";
       wrap.innerHTML = `
         <div style="font-weight:900;margin-bottom:6px;">${i}) ${escapeHtml(row.title)}</div>
@@ -243,15 +267,6 @@ function renderTables(){
   }
 }
 
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
 // ============================================================
 // Card draw
 // ============================================================
@@ -259,24 +274,19 @@ function escapeHtml(s){
 function drawCard(){
   playWhoosh();
 
-  // animação de puxar
-  deck.classList.remove("isDrawing"); // reset
-  // força reflow
+  deck.classList.remove("isDrawing");
   void deck.offsetWidth;
   deck.classList.add("isDrawing");
 
-  // escolhe a carta
   const picked = CARD_TYPES[randInt(0, CARD_TYPES.length - 1)];
   state.card = picked;
 
-  // atualiza a carta "voadora"
   const typeEl = flyingCard.querySelector(".cardType");
   typeEl.textContent = picked.label;
 
   const face = flyingCard.querySelector(".cardFace");
   face.style.background = `radial-gradient(500px 260px at 15% 20%, ${picked.color}55, transparent 55%), linear-gradient(160deg, rgba(255,255,255,.12), rgba(255,255,255,.03))`;
 
-  // depois que o card "chega", mostra no display
   setTimeout(()=>{
     updateCardDisplay();
     rollBtn.disabled = false;
@@ -303,11 +313,21 @@ function startRollingVisual(){
   die6.classList.add("rolling");
   die8.classList.add("rolling");
   die10.classList.add("rolling");
+  if (dieElemBox && !dieElemBox.classList.contains("hidden")){
+    dieElem.classList.add("rolling");
+  }
 }
 function stopRollingVisual(){
   die6.classList.remove("rolling");
   die8.classList.remove("rolling");
   die10.classList.remove("rolling");
+  if (dieElem) dieElem.classList.remove("rolling");
+}
+
+function setElementDieVisible(isVisible){
+  if (!dieElemBox) return;
+  if (isVisible) dieElemBox.classList.remove("hidden");
+  else dieElemBox.classList.add("hidden");
 }
 
 function rollDice(){
@@ -315,12 +335,21 @@ function rollDice(){
 
   playDice();
 
-  // reset escolha do d6
+  // reset escolha do d6 e elemento
   state.d6Pick = null;
+  state.elem = null;
+  setElementDieVisible(false);
+  dieElem.textContent = "—";
+
   d6Choice.classList.add("hidden");
   setText(d6ChoiceHint, "Role o d6 para aparecerem as opções.");
+  setText(preLines, "Role os dados para ver.");
 
-  // animar números "girando"
+  // animar números
+  die6.textContent = "—";
+  die8.textContent = "—";
+  die10.textContent = "—";
+
   startRollingVisual();
 
   const endAt = performance.now() + 1000;
@@ -328,6 +357,7 @@ function rollDice(){
     die6.textContent = String(randInt(1,6));
     die8.textContent = String(randInt(1,8));
     die10.textContent = String(randInt(1,10));
+
     if (performance.now() < endAt){
       requestAnimationFrame(tick);
     } else {
@@ -341,6 +371,13 @@ function rollDice(){
       die8.textContent = String(state.d8);
       die10.textContent = String(state.d10);
 
+      // Se d8 for Elemental clássico (1), rola d6 extra para elemento
+      if (state.d8 === 1){
+        state.elem = randInt(1,6);
+        setElementDieVisible(true);
+        dieElem.textContent = String(state.elem);
+      }
+
       showD6Choice();
       updateOutputPartial();
       playClick();
@@ -353,6 +390,20 @@ function showD6Choice(){
   const row = D6_CHOICES[state.d6];
   d6Choice.classList.remove("hidden");
   d6ChoiceHint.textContent = `${state.d6}) ${row.title}`;
+
+  // Mostra os outros dados ANTES da escolha do d6
+  const d8Text = D8_METHODS[state.d8 - 1];
+  const d10Obj = D10_MOMENTS[state.d10 - 1];
+
+  let lines = `Carta: ${state.card.label}\n`;
+  lines += `d8 (${state.d8}): ${d8Text}\n`;
+  if (state.d8 === 1 && state.elem){
+    const elName = ELEMENTS_D6[state.elem - 1];
+    lines += `Elemento (d6 extra = ${state.elem}): ${elName}\n`;
+  }
+  lines += `d10 (${state.d10}): ${d10Obj.name} — ${d10Obj.desc}`;
+
+  setText(preLines, lines);
 
   optA.innerHTML = `<strong>${row.A.name}</strong><span>${row.A.desc}</span>`;
   optB.innerHTML = `<strong>${row.B.name}</strong><span>${row.B.desc}</span>`;
@@ -371,8 +422,12 @@ function pickD6(letter){
 // Output
 // ============================================================
 
+function formatElement(){
+  if (state.d8 !== 1 || !state.elem) return "—";
+  return `${state.elem} — ${ELEMENTS_D6[state.elem - 1]}`;
+}
+
 function updateOutputPartial(){
-  // mostra parte do resultado enquanto d6 ainda não foi escolhido
   if (!state.card || !state.d6 || !state.d8 || !state.d10) return;
 
   const d8Text = D8_METHODS[state.d8 - 1];
@@ -385,6 +440,7 @@ function updateOutputPartial(){
   setText(outD8, `${state.d8} — ${d8Text}`);
   setText(outD10, `${state.d10} — ${d10Obj.name}: ${d10Obj.desc}`);
   setText(outD6, `${state.d6} — (escolha pendente)`);
+  setText(outElem, formatElement());
 }
 
 function updateOutputFinal(){
@@ -393,19 +449,30 @@ function updateOutputFinal(){
   const picked = state.d6Pick === "A" ? d6Row.A : d6Row.B;
   const d10Obj = D10_MOMENTS[state.d10 - 1];
 
-  setText(comboLine, `${state.card.label} + d8(${state.d8}) + d6(${state.d6}:${picked.name}) + d10(${state.d10}:${d10Obj.name})`);
-  setText(comboSub, `Método: ${d8Text} | Escolha tática: ${picked.desc} | Momento: ${d10Obj.desc}`);
+  const elemText = (state.d8 === 1 && state.elem) ? ` | Elemento: ${ELEMENTS_D6[state.elem - 1]}` : "";
+
+  setText(
+    comboLine,
+    `${state.card.label} + d8(${state.d8}) + d6(${state.d6}:${picked.name}) + d10(${state.d10}:${d10Obj.name})${elemText}`
+  );
+
+  const sub =
+    `Método: ${d8Text}${elemText ? ` (${ELEMENTS_D6[state.elem - 1]})` : ""} | ` +
+    `Escolha tática: ${picked.desc} | ` +
+    `Momento: ${d10Obj.desc}`;
+
+  setText(comboSub, sub);
 
   setText(outCard, state.card.label);
   setText(outD8, `${state.d8} — ${d8Text}`);
   setText(outD6, `${state.d6} — ${picked.name}: ${picked.desc}`);
   setText(outD10, `${state.d10} — ${d10Obj.name}: ${d10Obj.desc}`);
+  setText(outElem, formatElement());
 }
 
 function resetAll(){
-  state = { card:null, d6:null, d6Pick:null, d8:null, d10:null };
+  state = { card:null, d6:null, d6Pick:null, d8:null, d10:null, elem:null };
 
-  // card
   cardDisplay.classList.remove("quick","arts","buster");
   cardDisplay.classList.add("empty");
   cardDisplay.querySelector(".bigCardBadge").textContent = "Aguardando";
@@ -413,23 +480,24 @@ function resetAll(){
   cardDisplay.querySelector(".bigCardType").textContent = "—";
   cardDisplay.querySelector(".bigCardFooter").textContent = "Quick / Arts / Buster";
 
-  // dice
   die6.textContent = "—";
   die8.textContent = "—";
   die10.textContent = "—";
+  if (dieElem) dieElem.textContent = "—";
+  setElementDieVisible(false);
 
-  // buttons / choice
   rollBtn.disabled = true;
   d6Choice.classList.add("hidden");
   d6ChoiceHint.textContent = "Role o d6 para aparecerem as opções.";
+  setText(preLines, "Role os dados para ver.");
 
-  // output
   comboLine.textContent = "Puxe uma carta e role os dados.";
   comboSub.textContent = "";
   outCard.textContent = "—";
   outD8.textContent = "—";
   outD6.textContent = "—";
   outD10.textContent = "—";
+  outElem.textContent = "—";
 
   playClick();
 }
@@ -445,7 +513,6 @@ function init(){
   rollBtn.addEventListener("click", rollDice);
   resetBtn.addEventListener("click", resetAll);
 
-  // permitir som funcionar no primeiro clique (autoplay policies)
   document.addEventListener("pointerdown", ()=>{
     if (!canSound()) return;
     ensureAudio();

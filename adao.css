@@ -1,0 +1,242 @@
+/* adao.css */
+/* Complementa o simulador.css mantendo o tema */
+
+.adaoRefGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+
+.refCard{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:12px;
+  background:
+    radial-gradient(600px 220px at 10% 10%, rgba(255,255,255,.07), rgba(255,255,255,.02)),
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+}
+
+.refTitle{
+  font-weight:800;
+  margin-bottom:10px;
+}
+
+.refImg{
+  width:100%;
+  max-height:260px;
+  object-fit:contain;
+  border-radius:12px;
+  background: rgba(0,0,0,.25);
+  border:1px solid rgba(255,255,255,.08);
+}
+
+.refHint{
+  margin-top:10px;
+}
+
+.adaoTopControls{
+  display:flex;
+  gap:12px;
+  align-items:flex-end;
+  justify-content:space-between;
+  flex-wrap:wrap;
+}
+
+.limitBox{
+  min-width:220px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:10px 12px;
+  background:
+    radial-gradient(560px 160px at 10% 10%, rgba(255,255,255,.06), rgba(255,255,255,.02));
+}
+
+.limitLabel{
+  font-weight:800;
+  margin-bottom:8px;
+}
+
+.limitRow{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+
+.limitInput{
+  width:80px;
+  padding:8px 10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.18);
+  color: #eaf2ff;
+  outline:none;
+}
+
+.softPanel{
+  border:1px solid rgba(255,255,255,.10);
+  background:
+    radial-gradient(680px 240px at 10% 10%, rgba(255,255,255,.06), rgba(255,255,255,.02)),
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+}
+
+.handHeader{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.seqWrap{
+  margin-top:14px;
+  border-top:1px solid rgba(255,255,255,.08);
+  padding-top:12px;
+}
+
+.seqTitle{
+  font-weight:800;
+  margin-bottom:10px;
+}
+
+.seqSlots{
+  display:grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap:10px;
+}
+
+.seqSlot{
+  position:relative;
+  min-height:74px;
+  border-radius:14px;
+  border:1px dashed rgba(255,255,255,.18);
+  background: rgba(0,0,0,.14);
+  padding:10px;
+  cursor:pointer;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+
+.seqSlot:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.30);
+  background: rgba(0,0,0,.18);
+}
+
+.seqSlot.filled{
+  border-style:solid;
+  background:
+    radial-gradient(520px 140px at 10% 10%, rgba(255,255,255,.08), rgba(255,255,255,.02)),
+    rgba(0,0,0,.12);
+}
+
+.seqMini{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.seqIcon{
+  width:22px;
+  height:22px;
+  opacity:.95;
+}
+
+.seqName{
+  font-weight:900;
+}
+
+.seqSub{
+  margin-top:6px;
+  font-size:12px;
+  color: rgba(225,235,255,.78);
+}
+
+.actionsList{
+  display:grid;
+  gap:10px;
+  margin-top:12px;
+}
+
+.actionCard{
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:12px;
+  background:
+    radial-gradient(520px 180px at 10% 10%, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  cursor:pointer;
+  transition: transform .12s ease, border-color .12s ease, background .12s ease;
+}
+
+.actionCard:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.28);
+}
+
+.actionCard.selected{
+  border-color: rgba(130, 190, 255, .55);
+  box-shadow: 0 0 0 2px rgba(130, 190, 255, .16);
+}
+
+.actionTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.actionName{
+  font-weight:900;
+}
+
+.actionMeta{
+  font-size:12px;
+  color: rgba(225,235,255,.75);
+  margin-top:6px;
+}
+
+.reqRow{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-top:10px;
+}
+
+.reqPill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.14);
+  font-size:12px;
+}
+
+.damageRow{
+  margin-top:14px;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.damageControls{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+
+.damageOut{
+  min-width:160px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  padding:10px 12px;
+  background: rgba(0,0,0,.14);
+}
+
+.damageValue{
+  margin-top:6px;
+  font-weight:950;
+  font-size:18px;
+}

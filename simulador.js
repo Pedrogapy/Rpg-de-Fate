@@ -1,522 +1,645 @@
-// ============================================================
-// Config (fiel ao texto final do usuário) + regra extra do elemento
-// ============================================================
+// simulador.js
+// Fiel ao texto final do usuário. Não inventa regra nova fora do que foi definido.
+// Fluxo: comprar cartas (mão até 7) -> escolher carta usada -> rolar d6/d8/d10 (+d6 elemento se d8=1) -> escolher opção do d6 no resultado -> gerar descrição.
+
+function $(id){ return document.getElementById(id); }
+
+// ============================
+// Config (tabelas) — do texto final
+// ============================
 
 const CARD_TYPES = [
-  { key: "Quick",  css: "quick",  label: "Quick",  color: "#31d17d" },
-  { key: "Arts",   css: "arts",   label: "Arts",   color: "#58a6ff" },
-  { key: "Buster", css: "buster", label: "Buster", color: "#ff4d4d" },
+  { key:"quick",  label:"Quick",  css:"quick",  icon:"assets/card_quick.svg",  desc:"Quick foca em vários alvos (magia em área)." },
+  { key:"arts",   label:"Arts",   css:"arts",   icon:"assets/card_arts.svg",   desc:"Arts causa um efeito em um alvo." },
+  { key:"buster", label:"Buster", css:"buster", icon:"assets/card_buster.svg", desc:"Buster foca em um inimigo (um alvo)." },
 ];
 
-const D8_METHODS = [
-  "Elemental clássico",
-  "Alteração de propriedades físicas (densidade, atrito, dureza, pressão)",
-  "Energia (calor, cinética, elétrica como energia pura)",
-  "Interferência mágica (ruído, distorção, quebra de fórmulas)",
-  "Materialização temporária (criação breve de objetos ou estruturas)",
-  "Ressonância (vibração, frequência, desestabilização interna)",
-  "Vetor (direcionamento, impulso, redirecionamento de força)",
-  "Selo técnico (marca arcana que altera interações futuras)",
-];
+const D8_METHODS = Magia.D8;
 
-// Elementos quando d8 = Elemental clássico (1)
-const ELEMENTS_D6 = [
-  "Fogo",
-  "Terra",
-  "Água",
-  "Ar",
-  "Raio",
-  "Luz",
-];
+const D6_CHOICES = Magia.D6;
 
-// d6: cada número -> duas opções (nome + descrição), exatamente como no texto
-const D6_CHOICES = {
-  1: {
-    title: "Segurança ou Alcance",
-    A: { name: "Segurança", desc: "você ignora uma reação inimiga" },
-    B: { name: "Alcance",   desc: "você pode estender o efeito/ quantidade de alvos atingidos alem do permitido pela carta" },
-  },
-  2: {
-    title: "Precisão ou Velocidade",
-    A: { name: "Precisão",  desc: "bônus no teste de acerto (+1 alem do atual)" },
-    B: { name: "Velocidade",desc: "você pode agir antes de alguém que normalmente agiria antes (serve pra reação (vantagem nesse caso))" },
-  },
-  3: {
-    title: "Pressão ou Controle",
-    A: { name: "Pressão",  desc: "impõe desvantagem na próxima ação do alvo" },
-    B: { name: "Controle", desc: "cria uma condição leve (dificulta movimento, visão, conjuração)" },
-  },
-  4: {
-    title: "Continuidade ou Explosão",
-    A: { name: "Continuidade", desc: "efeito persiste um turno extra" },
-    B: { name: "Explosão",     desc: "efeito acontece todo de uma vez" },
-  },
-  5: {
-    title: "Adaptação ou Sinergia",
-    A: { name: "Adaptação", desc: "você pode reinterpretar o resultado do d8 de forma coerente" },
-    B: { name: "Sinergia",  desc: "concede bônus para o próximo aliado que agir" },
-  },
-  6: {
-    title: "Marca ou Recuperação",
-    A: { name: "Marca",       desc: "alvo fica marcado para aplicar efeitos sem ter que acertar o alvo em si" },
-    B: { name: "Recuperação", desc: "você compra 1 carta adicional (respeitando o limite de 7)" },
-  },
-};
+const D10_MOMENTS = Magia.D10;
 
-// d10: lista de 1..10, exatamente como no texto
-const D10_MOMENTS = [
-  { name: "Eco", desc: "Se a magia acertar, o ataque se repete em outro alvo válido" },
-  { name: "Janela", desc: "Se o alvo errar a próxima ação, sofre 1d6 de dano" },
-  { name: "Quebra", desc: "Remove uma proteção, buff ou preparação ativa do alvo" },
-  { name: "Reação", desc: "Você pode realizar uma reação novamente caso sofra um ataque e sua primeira tentativa de reação tenha falhado" },
-  { name: "Presságio", desc: "Olhe a próxima carta do seu deck e decida manter ou trocar" },
-  { name: "Ancoragem", desc: "Até o próximo turno, efeitos do mesmo método (d8)  serão escolhidos" },
-  { name: "Deslocamento", desc: "Você ou o alvo muda de posição de forma relevante e instantanea" },
-  { name: "Amplificação Narrativa", desc: "O efeito causa impacto ambiental ou narrativo útil (concede vantagem)" },
-  { name: "Combo", desc: "Se usar uma carta diferente no próximo turno, ganha bônus de dano ou efeito" },
-  { name: "Clímax", desc: "Ignora todas as desvantagens atuais pra realização de uma magia eficaz" },
-];
+const ELEMENTS = Magia.ELEMENTS;
 
-// ============================================================
+// ============================
 // Estado
-// ============================================================
+// ============================
 
-let state = {
-  card: null,       // {key, css, label, color}
-  d6: null,         // number 1..6
-  d6Pick: null,     // "A" or "B"
-  d8: null,         // number 1..8
-  d10: null,        // number 1..10
-  elem: null,       // number 1..6 (apenas quando d8==1)
+const state = {
+  hand: [],
+  selectedHandIndex: null,
+  usedCard: null,
+
+  d6: null,
+  d8: null,
+  d10: null,
+  elem: null,
+
+  d6Pick: null,           // "A" ou "B"
+  d6ChoiceName: null,     // nome final
+
+  methodOverride: null,   // usado apenas se d6=5 e opção A (Adaptação)
 };
 
-// ============================================================
-// Helpers
-// ============================================================
-
-const $ = (id) => document.getElementById(id);
-
-function randInt(min, maxInclusive){
-  return Math.floor(Math.random() * (maxInclusive - min + 1)) + min;
-}
-
-function setText(el, text){
-  if (!el) return;
-  el.textContent = text;
-}
-
-function escapeHtml(s){
-  return String(s)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-// ============================================================
-// Som (Web Audio simples, sem arquivos)
-// ============================================================
-
-let audioCtx = null;
-
-function canSound(){
-  const t = $("soundToggle");
-  return !!t && t.checked;
-}
-
-function ensureAudio(){
-  if (!audioCtx){
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === "suspended"){
-    audioCtx.resume().catch(()=>{});
-  }
-}
-
-function playClick(){
-  if (!canSound()) return;
-  ensureAudio();
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = "triangle";
-  o.frequency.setValueAtTime(440, audioCtx.currentTime);
-  g.gain.setValueAtTime(0.001, audioCtx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.15, audioCtx.currentTime + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
-  o.connect(g).connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime + 0.09);
-}
-
-function playWhoosh(){
-  if (!canSound()) return;
-  ensureAudio();
-  const bufferSize = audioCtx.sampleRate * 0.12;
-  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for (let i=0;i<bufferSize;i++){
-    data[i] = (Math.random()*2-1) * (1 - i/bufferSize);
-  }
-  const src = audioCtx.createBufferSource();
-  src.buffer = buffer;
-
-  const filter = audioCtx.createBiquadFilter();
-  filter.type = "highpass";
-  filter.frequency.value = 900;
-
-  const g = audioCtx.createGain();
-  g.gain.value = 0.14;
-
-  src.connect(filter).connect(g).connect(audioCtx.destination);
-  src.start();
-}
-
-function playDice(){
-  if (!canSound()) return;
-  ensureAudio();
-  const o = audioCtx.createOscillator();
-  const g = audioCtx.createGain();
-  o.type = "square";
-  o.frequency.setValueAtTime(220, audioCtx.currentTime);
-  o.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08);
-  g.gain.setValueAtTime(0.001, audioCtx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.12, audioCtx.currentTime + 0.01);
-  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12);
-  o.connect(g).connect(audioCtx.destination);
-  o.start();
-  o.stop(audioCtx.currentTime + 0.13);
-}
-
-// ============================================================
-// UI refs
-// ============================================================
+// ============================
+// DOM
+// ============================
 
 const deck = $("deck");
 const flyingCard = $("flyingCard");
-const drawBtn = $("drawBtn");
-const resetBtn = $("resetBtn");
 
-const cardDisplay = $("cardDisplay");
+const newTurnBtn = $("newTurnBtn");
+const drawOneBtn = $("drawOneBtn");
+const resetBtn = $("resetBtn");
+const soundToggle = $("soundToggle");
+
+const handGrid = $("handGrid");
+const handCount = $("handCount");
+const selectedName = $("selectedName");
+const selectedDesc = $("selectedDesc");
+const useCardBtn = $("useCardBtn");
 
 const rollBtn = $("rollBtn");
 const die6 = $("die6");
 const die8 = $("die8");
 const die10 = $("die10");
-
 const dieElemBox = $("dieElemBox");
 const dieElem = $("dieElem");
 
-const d6Choice = $("d6Choice");
-const d6ChoiceHint = $("d6ChoiceHint");
-const preLines = $("preLines");
-const optA = $("optA");
-const optB = $("optB");
-
 const comboLine = $("comboLine");
 const comboSub = $("comboSub");
+
 const outCard = $("outCard");
 const outD8 = $("outD8");
 const outD6 = $("outD6");
 const outD10 = $("outD10");
 const outElem = $("outElem");
 
-// tables
+const d6ChoiceWrap = $("d6Choice");
+const preLines = $("preLines");
+const d6ChoiceHint = $("d6ChoiceHint");
+const optA = $("optA");
+const optB = $("optB");
+
+const adaptWrap = $("adaptWrap");
+const adaptMethod = $("adaptMethod");
+
+const spellSummary = $("spellSummary");
+const spellText = $("spellText");
+
 const tableD8 = $("tableD8");
 const tableD6 = $("tableD6");
 const tableD10 = $("tableD10");
 
-// ============================================================
-// Render tables
-// ============================================================
+// ============================
+// Som simples
+// ============================
 
-function renderTables(){
-  if (tableD8){
-    tableD8.innerHTML = "";
-    D8_METHODS.forEach((t)=> {
-      const li = document.createElement("li");
-      li.textContent = t;
-      tableD8.appendChild(li);
-    });
-  }
-
-  if (tableD10){
-    tableD10.innerHTML = "";
-    D10_MOMENTS.forEach((m)=> {
-      const li = document.createElement("li");
-      li.innerHTML = `<strong>${escapeHtml(m.name)}</strong> — ${escapeHtml(m.desc)}`;
-      tableD10.appendChild(li);
-    });
-  }
-
-  if (tableD6){
-    tableD6.innerHTML = "";
-    for (let i=1;i<=6;i++){
-      const row = D6_CHOICES[i];
-      const wrap = document.createElement("div");
-      wrap.style.marginBottom = "10px";
-      wrap.innerHTML = `
-        <div style="font-weight:900;margin-bottom:6px;">${i}) ${escapeHtml(row.title)}</div>
-        <div style="color:#b8b8c5;font-size:13px;">
-          <strong>${escapeHtml(row.A.name)}</strong>: ${escapeHtml(row.A.desc)}<br/>
-          <strong>${escapeHtml(row.B.name)}</strong>: ${escapeHtml(row.B.desc)}
-        </div>
-      `;
-      tableD6.appendChild(wrap);
-    }
-  }
+function playTone(freq=740, ms=80, type="triangle", gain=0.05){
+  if(!soundToggle.checked) return;
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.value = gain;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + ms/1000);
+    setTimeout(()=>ctx.close(), ms+60);
+  }catch(_){}
 }
 
-// ============================================================
-// Card draw
-// ============================================================
+function playClick(){ playTone(740, 80, "triangle", 0.05); }
+function playRoll(){
+  if(!soundToggle.checked) return;
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = "square";
+    o.frequency.value = 220;
+    g.gain.value = 0.03;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.frequency.linearRampToValueAtTime(660, ctx.currentTime + 0.12);
+    o.stop(ctx.currentTime + 0.14);
+    setTimeout(()=>ctx.close(), 210);
+  }catch(_){}
+}
 
-function drawCard(){
-  playWhoosh();
+// ============================
+// Util
+// ============================
 
+function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+function setDie(el, value){
+  el.classList.add("shake");
+  el.textContent = String(value);
+  setTimeout(()=>el.classList.remove("shake"), 180);
+}
+
+function resetDiceUI(){
+  die6.textContent = "—";
+  die8.textContent = "—";
+  die10.textContent = "—";
+  dieElem.textContent = "—";
+  dieElemBox.classList.add("hidden");
+}
+
+function chosenMethodIndex(){
+  return state.methodOverride ?? state.d8;
+}
+
+function d8Text(idx){
+  return D8_METHODS[idx-1] || "—";
+}
+
+function d10Name(idx){
+  return D10_MOMENTS[idx-1]?.name || "—";
+}
+
+function d10Text(idx){
+  const o = D10_MOMENTS[idx-1];
+  return o ? `${o.name}: ${o.desc}` : "—";
+}
+
+function elemText(idx){
+  return idx ? (ELEMENTS[idx-1] || "—") : "—";
+}
+
+function getD6Obj(d6){
+  return D6_CHOICES[d6-1] || null;
+}
+
+function getD6ChoiceName(d6, pick){
+  const o = getD6Obj(d6);
+  if(!o) return "—";
+  return pick === "A" ? o.pair[0] : o.pair[1];
+}
+
+function getD6ChoiceDesc(d6, pick){
+  const o = getD6Obj(d6);
+  if(!o) return "—";
+  return pick === "A" ? o.A : o.B;
+}
+
+// ============================
+// Cartas: comprar + mão até 7
+// ============================
+
+function animateDraw(card){
   deck.classList.remove("isDrawing");
   void deck.offsetWidth;
   deck.classList.add("isDrawing");
 
-  const picked = CARD_TYPES[randInt(0, CARD_TYPES.length - 1)];
-  state.card = picked;
-
   const typeEl = flyingCard.querySelector(".cardType");
-  typeEl.textContent = picked.label;
+  typeEl.textContent = card.label;
 
   const face = flyingCard.querySelector(".cardFace");
-  face.style.background = `radial-gradient(500px 260px at 15% 20%, ${picked.color}55, transparent 55%), linear-gradient(160deg, rgba(255,255,255,.12), rgba(255,255,255,.03))`;
+  face.style.borderColor = `rgba(255,255,255,.10)`;
+  face.style.background =
+    `radial-gradient(520px 280px at 12% 18%, rgba(255,255,255,.12), rgba(255,255,255,.03)),` +
+    `linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02))`;
 
-  setTimeout(()=>{
-    updateCardDisplay();
-    rollBtn.disabled = false;
-    playClick();
-  }, 950);
+  flyingCard.classList.remove("quick","arts","buster");
+  flyingCard.classList.add(card.css);
+
+  setTimeout(()=>deck.classList.remove("isDrawing"), 900);
 }
 
-function updateCardDisplay(){
-  if (!state.card) return;
-  cardDisplay.classList.remove("empty","quick","arts","buster");
-  cardDisplay.classList.add(state.card.css);
-
-  cardDisplay.querySelector(".bigCardBadge").textContent = "Carta puxada";
-  cardDisplay.querySelector(".bigCardSubtitle").textContent = "Agora você pode girar os dados.";
-  cardDisplay.querySelector(".bigCardType").textContent = state.card.label;
-  cardDisplay.querySelector(".bigCardFooter").textContent = "Quick / Arts / Buster";
+function drawCardRandom(){
+  const picked = CARD_TYPES[randInt(0, CARD_TYPES.length-1)];
+  return picked;
 }
 
-// ============================================================
-// Dice roll
-// ============================================================
+function addToHand(card){
+  if(state.hand.length >= 7) return false;
+  state.hand.push(card);
+  return true;
+}
 
-function startRollingVisual(){
-  die6.classList.add("rolling");
-  die8.classList.add("rolling");
-  die10.classList.add("rolling");
-  if (dieElemBox && !dieElemBox.classList.contains("hidden")){
-    dieElem.classList.add("rolling");
+function updateHandCount(){
+  handCount.textContent = String(state.hand.length);
+}
+
+function renderHand(){
+  handGrid.innerHTML = "";
+  for(let i=0;i<7;i++){
+    const card = state.hand[i] || null;
+
+    const div = document.createElement("div");
+    div.className = "handCard";
+
+    if(!card){
+      div.classList.add("emptySlot");
+      div.innerHTML = `
+        <div class="handBadge"><span>Vazio</span></div>
+        <div class="handSub">—</div>
+      `;
+      handGrid.appendChild(div);
+      continue;
+    }
+
+    div.classList.add(card.css);
+    if(state.selectedHandIndex === i) div.classList.add("selected");
+
+    div.innerHTML = `
+      <div class="handGlow"></div>
+      <div class="handBadge">
+        <img class="handIcon" src="${card.icon}" alt="${card.label}"/>
+        <span>${card.label}</span>
+      </div>
+      <div class="handSub">clique para selecionar</div>
+    `;
+
+    div.addEventListener("click", ()=>{
+      playClick();
+      state.selectedHandIndex = i;
+      renderHand();
+      renderSelectedPanel();
+    });
+
+    handGrid.appendChild(div);
   }
-}
-function stopRollingVisual(){
-  die6.classList.remove("rolling");
-  die8.classList.remove("rolling");
-  die10.classList.remove("rolling");
-  if (dieElem) dieElem.classList.remove("rolling");
+
+  updateHandCount();
 }
 
-function setElementDieVisible(isVisible){
-  if (!dieElemBox) return;
-  if (isVisible) dieElemBox.classList.remove("hidden");
-  else dieElemBox.classList.add("hidden");
+function renderSelectedPanel(){
+  if(state.selectedHandIndex == null || !state.hand[state.selectedHandIndex]){
+    selectedName.textContent = "—";
+    selectedDesc.textContent = "Selecione uma carta na mão para ver a descrição.";
+    useCardBtn.disabled = true;
+    return;
+  }
+
+  const card = state.hand[state.selectedHandIndex];
+  selectedName.textContent = card.label;
+  selectedDesc.textContent = card.desc;
+  useCardBtn.disabled = false;
 }
+
+function newTurnFill(){
+  while(state.hand.length < 7){
+    const c = drawCardRandom();
+    addToHand(c);
+    animateDraw(c);
+  }
+  playClick();
+  renderHand();
+  renderSelectedPanel();
+}
+
+function drawOne(){
+  if(state.hand.length >= 7) return;
+  const c = drawCardRandom();
+  addToHand(c);
+  animateDraw(c);
+  playClick();
+  renderHand();
+  renderSelectedPanel();
+}
+
+// ============================
+// Usar carta -> habilita rolagem
+// ============================
+
+function useSelectedCard(){
+  if(state.selectedHandIndex == null || !state.hand[state.selectedHandIndex]) return;
+
+  playClick();
+
+  state.usedCard = state.hand[state.selectedHandIndex];
+  state.hand.splice(state.selectedHandIndex, 1);
+  state.selectedHandIndex = null;
+
+  // reseta dados e escolhas
+  state.d6 = null; state.d8 = null; state.d10 = null; state.elem = null;
+  state.d6Pick = null; state.d6ChoiceName = null;
+  state.methodOverride = null;
+
+  resetDiceUI();
+  hideD6Choice();
+
+  rollBtn.disabled = false;
+
+  renderHand();
+  renderSelectedPanel();
+  updateOutputsBeforeRoll();
+}
+
+// ============================
+// Rolagem
+// ============================
 
 function rollDice(){
-  if (!state.card) return;
+  if(!state.usedCard) return;
 
-  playDice();
+  playRoll();
 
-  // reset escolha do d6 e elemento
-  state.d6Pick = null;
-  state.elem = null;
-  setElementDieVisible(false);
-  dieElem.textContent = "—";
-
-  d6Choice.classList.add("hidden");
-  setText(d6ChoiceHint, "Role o d6 para aparecerem as opções.");
-  setText(preLines, "Role os dados para ver.");
-
-  // animar números
-  die6.textContent = "—";
-  die8.textContent = "—";
-  die10.textContent = "—";
-
-  startRollingVisual();
-
-  const endAt = performance.now() + 1000;
+  // animação rápida
+  const endAt = performance.now() + 900;
   const tick = () => {
     die6.textContent = String(randInt(1,6));
     die8.textContent = String(randInt(1,8));
     die10.textContent = String(randInt(1,10));
-
-    if (performance.now() < endAt){
+    if(performance.now() < endAt){
       requestAnimationFrame(tick);
     } else {
-      stopRollingVisual();
-
       state.d6 = randInt(1,6);
       state.d8 = randInt(1,8);
       state.d10 = randInt(1,10);
 
-      die6.textContent = String(state.d6);
-      die8.textContent = String(state.d8);
-      die10.textContent = String(state.d10);
+      setDie(die6, state.d6);
+      setDie(die8, state.d8);
+      setDie(die10, state.d10);
 
-      // Se d8 for Elemental clássico (1), rola d6 extra para elemento
-      if (state.d8 === 1){
+      // elemento se d8=1
+      state.elem = null;
+      if(state.d8 === 1){
         state.elem = randInt(1,6);
-        setElementDieVisible(true);
-        dieElem.textContent = String(state.elem);
+        dieElemBox.classList.remove("hidden");
+        setDie(dieElem, state.elem);
+      } else {
+        dieElemBox.classList.add("hidden");
       }
 
+      // abre escolha do d6 (no resultado)
       showD6Choice();
-      updateOutputPartial();
-      playClick();
+      updatePreChoiceInfo();
+      updateOutputsAfterRollBeforeChoice();
     }
   };
-  requestAnimationFrame(tick);
+  tick();
 }
+
+// ============================
+// d6 choice (no resultado)
+// ============================
 
 function showD6Choice(){
-  const row = D6_CHOICES[state.d6];
-  d6Choice.classList.remove("hidden");
-  d6ChoiceHint.textContent = `${state.d6}) ${row.title}`;
+  d6ChoiceWrap.classList.remove("hidden");
+  adaptWrap.classList.add("hidden");
 
-  // Mostra os outros dados ANTES da escolha do d6
-  const d8Text = D8_METHODS[state.d8 - 1];
-  const d10Obj = D10_MOMENTS[state.d10 - 1];
-
-  let lines = `Carta: ${state.card.label}\n`;
-  lines += `d8 (${state.d8}): ${d8Text}\n`;
-  if (state.d8 === 1 && state.elem){
-    const elName = ELEMENTS_D6[state.elem - 1];
-    lines += `Elemento (d6 extra = ${state.elem}): ${elName}\n`;
+  const o = getD6Obj(state.d6);
+  if(!o){
+    d6ChoiceHint.textContent = "d6 inválido.";
+    optA.disabled = true; optB.disabled = true;
+    return;
   }
-  lines += `d10 (${state.d10}): ${d10Obj.name} — ${d10Obj.desc}`;
 
-  setText(preLines, lines);
-
-  optA.innerHTML = `<strong>${row.A.name}</strong><span>${row.A.desc}</span>`;
-  optB.innerHTML = `<strong>${row.B.name}</strong><span>${row.B.desc}</span>`;
-
-  optA.onclick = () => pickD6("A");
-  optB.onclick = () => pickD6("B");
+  d6ChoiceHint.textContent = `d6(${state.d6}) — escolha uma opção:`;
+  optA.textContent = o.pair[0];
+  optB.textContent = o.pair[1];
+  optA.disabled = false;
+  optB.disabled = false;
 }
 
-function pickD6(letter){
-  state.d6Pick = letter;
+function hideD6Choice(){
+  d6ChoiceWrap.classList.add("hidden");
+  adaptWrap.classList.add("hidden");
+}
+
+function updatePreChoiceInfo(){
+  const methodIdx = chosenMethodIndex();
+  preLines.innerHTML = `
+    <div><strong>Carta:</strong> ${state.usedCard ? state.usedCard.label : "—"}</div>
+    <div><strong>d8:</strong> ${d8Text(methodIdx)}${state.methodOverride ? " (reinterpretado)" : ""}</div>
+    <div><strong>d10:</strong> ${d10Name(state.d10)}</div>
+    <div><strong>Elemento:</strong> ${methodIdx === 1 ? elemText(state.elem) : "—"}</div>
+  `;
+}
+
+function setAdaptSelect(){
+  adaptMethod.innerHTML = "";
+  for(let i=1;i<=8;i++){
+    const opt = document.createElement("option");
+    opt.value = String(i);
+    opt.textContent = `${i}) ${D8_METHODS[i-1]}`;
+    adaptMethod.appendChild(opt);
+  }
+  adaptMethod.value = String(chosenMethodIndex());
+}
+
+function applyD6Pick(pick){
+  if(!state.d6) return;
+
   playClick();
-  updateOutputFinal();
+
+  state.d6Pick = pick;
+  state.d6ChoiceName = getD6ChoiceName(state.d6, pick);
+
+  // Adaptação (d6=5, opção A)
+  if(state.d6 === 5 && pick === "A"){
+    adaptWrap.classList.remove("hidden");
+    setAdaptSelect();
+  } else {
+    state.methodOverride = null;
+    adaptWrap.classList.add("hidden");
+  }
+
+  updatePreChoiceInfo();
+  updateFinalResult();
 }
 
-// ============================================================
+function onAdaptChange(){
+  if(!(state.d6 === 5 && state.d6Pick === "A")) return;
+
+  const newIdx = parseInt(adaptMethod.value, 10);
+  if(!Number.isFinite(newIdx) || newIdx < 1 || newIdx > 8) return;
+
+  state.methodOverride = newIdx;
+
+  // se reinterpretar para elemental, define elemento
+  if(state.methodOverride === 1){
+    if(!state.elem){
+      state.elem = randInt(1,6);
+      dieElemBox.classList.remove("hidden");
+      setDie(dieElem, state.elem);
+    }
+  } else {
+    state.elem = null;
+    dieElemBox.classList.add("hidden");
+  }
+
+  updatePreChoiceInfo();
+  updateFinalResult();
+}
+
+// ============================
 // Output
-// ============================================================
+// ============================
 
-function formatElement(){
-  if (state.d8 !== 1 || !state.elem) return "—";
-  return `${state.elem} — ${ELEMENTS_D6[state.elem - 1]}`;
-}
-
-function updateOutputPartial(){
-  if (!state.card || !state.d6 || !state.d8 || !state.d10) return;
-
-  const d8Text = D8_METHODS[state.d8 - 1];
-  const d10Obj = D10_MOMENTS[state.d10 - 1];
-
-  setText(comboLine, `Carta: ${state.card.label} | d6: ${state.d6} | d8: ${state.d8} | d10: ${state.d10}`);
-  setText(comboSub, `Escolha a opção do d6 para fechar a combinação.`);
-
-  setText(outCard, state.card.label);
-  setText(outD8, `${state.d8} — ${d8Text}`);
-  setText(outD10, `${state.d10} — ${d10Obj.name}: ${d10Obj.desc}`);
-  setText(outD6, `${state.d6} — (escolha pendente)`);
-  setText(outElem, formatElement());
-}
-
-function updateOutputFinal(){
-  const d8Text = D8_METHODS[state.d8 - 1];
-  const d6Row = D6_CHOICES[state.d6];
-  const picked = state.d6Pick === "A" ? d6Row.A : d6Row.B;
-  const d10Obj = D10_MOMENTS[state.d10 - 1];
-
-  const elemText = (state.d8 === 1 && state.elem) ? ` | Elemento: ${ELEMENTS_D6[state.elem - 1]}` : "";
-
-  setText(
-    comboLine,
-    `${state.card.label} + d8(${state.d8}) + d6(${state.d6}:${picked.name}) + d10(${state.d10}:${d10Obj.name})${elemText}`
-  );
-
-  const sub =
-    `Método: ${d8Text}${elemText ? ` (${ELEMENTS_D6[state.elem - 1]})` : ""} | ` +
-    `Escolha tática: ${picked.desc} | ` +
-    `Momento: ${d10Obj.desc}`;
-
-  setText(comboSub, sub);
-
-  setText(outCard, state.card.label);
-  setText(outD8, `${state.d8} — ${d8Text}`);
-  setText(outD6, `${state.d6} — ${picked.name}: ${picked.desc}`);
-  setText(outD10, `${state.d10} — ${d10Obj.name}: ${d10Obj.desc}`);
-  setText(outElem, formatElement());
-}
-
-function resetAll(){
-  state = { card:null, d6:null, d6Pick:null, d8:null, d10:null, elem:null };
-
-  cardDisplay.classList.remove("quick","arts","buster");
-  cardDisplay.classList.add("empty");
-  cardDisplay.querySelector(".bigCardBadge").textContent = "Aguardando";
-  cardDisplay.querySelector(".bigCardSubtitle").textContent = "Puxe uma carta para começar";
-  cardDisplay.querySelector(".bigCardType").textContent = "—";
-  cardDisplay.querySelector(".bigCardFooter").textContent = "Quick / Arts / Buster";
-
-  die6.textContent = "—";
-  die8.textContent = "—";
-  die10.textContent = "—";
-  if (dieElem) dieElem.textContent = "—";
-  setElementDieVisible(false);
-
-  rollBtn.disabled = true;
-  d6Choice.classList.add("hidden");
-  d6ChoiceHint.textContent = "Role o d6 para aparecerem as opções.";
-  setText(preLines, "Role os dados para ver.");
-
-  comboLine.textContent = "Puxe uma carta e role os dados.";
+function clearOutputs(){
+  comboLine.textContent = "Escolha uma carta e role os dados.";
   comboSub.textContent = "";
+
   outCard.textContent = "—";
   outD8.textContent = "—";
   outD6.textContent = "—";
   outD10.textContent = "—";
   outElem.textContent = "—";
 
-  playClick();
+  spellSummary.textContent = "—";
+  spellText.textContent = "A descrição aparece depois que você escolher a opção do d6.";
 }
 
-// ============================================================
-// Hooks
-// ============================================================
+function updateOutputsBeforeRoll(){
+  clearOutputs();
+  outCard.textContent = state.usedCard ? `${state.usedCard.label} — ${state.usedCard.desc}` : "—";
+  comboLine.textContent = state.usedCard ? `Carta usada: ${state.usedCard.label} (agora role os dados)` : "Escolha uma carta e role os dados.";
+  comboSub.textContent = state.usedCard ? "Clique em “Girar dados”." : "";
+}
 
-function init(){
+function updateOutputsAfterRollBeforeChoice(){
+  const methodIdx = chosenMethodIndex();
+
+  outCard.textContent = `${state.usedCard.label} — ${state.usedCard.desc}`;
+  outD8.textContent = `d8(${state.d8}) — ${d8Text(methodIdx)}`;
+  outD10.textContent = `d10(${state.d10}) — ${d10Text(state.d10)}`;
+  outD6.textContent = `d6(${state.d6}) — escolha pendente`;
+  outElem.textContent = (methodIdx === 1) ? elemText(state.elem) : "—";
+
+  comboLine.textContent = `${state.usedCard.label} + d8(${state.d8}) + d6(${state.d6}) + d10(${state.d10})`;
+  comboSub.textContent = "Escolha a opção do d6 para fechar a magia.";
+
+  spellSummary.textContent = "—";
+  spellText.textContent = "Escolha a opção do d6 para gerar a descrição temática.";
+}
+
+function updateFinalResult(){
+  if(!state.d6Pick) return;
+
+  const methodIdx = chosenMethodIndex();
+  const methodLabel = d8Text(methodIdx);
+  const elemLabel = (methodIdx === 1) ? elemText(state.elem) : null;
+
+  const d6Desc = getD6ChoiceDesc(state.d6, state.d6Pick);
+  const d10N = d10Name(state.d10);
+
+  outD8.textContent = `d8(${state.d8}) — ${methodLabel}${state.methodOverride ? " (reinterpretado)" : ""}`;
+  outD10.textContent = `d10(${state.d10}) — ${d10Text(state.d10)}`;
+  outD6.textContent = `d6(${state.d6}) — ${state.d6ChoiceName} — ${d6Desc}`;
+  outElem.textContent = elemLabel ? elemLabel : "—";
+
+  let combo = `${state.usedCard.label} + d8(${methodIdx}${state.methodOverride ? "*" : ""}) + d6(${state.d6}:${state.d6ChoiceName}) + d10(${state.d10}:${d10N})`;
+  if(elemLabel) combo += ` + elemento(${elemLabel})`;
+
+  comboLine.textContent = combo;
+  comboSub.textContent = `Método: ${methodLabel}${elemLabel ? ` (${elemLabel})` : ""} | Escolha: ${d6Desc} | Momento: ${D10_MOMENTS[state.d10-1].desc}`;
+
+  // Gera texto da magia
+  const spell = Magia.generate({
+    cardKey: state.usedCard.key,
+    methodIndex: methodIdx,
+    elementLabel: elemLabel,
+    d6ChoiceName: state.d6ChoiceName,
+    d10Index: state.d10
+  });
+
+  spellSummary.textContent = spell.summary;
+  spellText.textContent = spell.text;
+
+  // Recuperação compra 1 carta (respeitando limite 7)
+  if(state.d6 === 6 && state.d6Pick === "B"){
+    if(state.hand.length < 7){
+      const c = drawCardRandom();
+      addToHand(c);
+      animateDraw(c);
+      renderHand();
+      renderSelectedPanel();
+      spellText.textContent += " Recuperação: você compra 1 carta adicional (sem passar de 7).";
+    } else {
+      spellText.textContent += " Recuperação: sua mão já está cheia (7), então não compra carta.";
+    }
+  }
+}
+
+// ============================
+// Tabelas
+// ============================
+
+function renderTables(){
+  tableD8.innerHTML = "";
+  D8_METHODS.forEach((t)=>{
+    const li = document.createElement("li");
+    li.textContent = t;
+    tableD8.appendChild(li);
+  });
+
+  tableD10.innerHTML = "";
+  D10_MOMENTS.forEach((o)=>{
+    const li = document.createElement("li");
+    li.textContent = `${o.name} — ${o.desc}`;
+    tableD10.appendChild(li);
+  });
+
+  tableD6.innerHTML = "";
+  D6_CHOICES.forEach((o, i)=>{
+    const box = document.createElement("div");
+    box.className = "ruleBox";
+    box.innerHTML = `
+      <div class="ruleHead">
+        <div class="ruleName">${i+1}) ${o.pair[0]} ou ${o.pair[1]}</div>
+      </div>
+      <div class="ruleDesc">${o.A}</div>
+      <div class="ruleDesc" style="margin-top:6px">${o.B}</div>
+    `;
+    tableD6.appendChild(box);
+  });
+}
+
+// ============================
+// Reset
+// ============================
+
+function resetAll(){
+  state.hand = [];
+  state.selectedHandIndex = null;
+  state.usedCard = null;
+
+  state.d6 = null; state.d8 = null; state.d10 = null; state.elem = null;
+  state.d6Pick = null; state.d6ChoiceName = null;
+  state.methodOverride = null;
+
+  resetDiceUI();
+  hideD6Choice();
+  clearOutputs();
+
+  rollBtn.disabled = true;
+
+  renderHand();
+  renderSelectedPanel();
+}
+
+// ============================
+// Eventos
+// ============================
+
+newTurnBtn.addEventListener("click", ()=>{ newTurnFill(); });
+drawOneBtn.addEventListener("click", ()=>{ drawOne(); });
+
+resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
+
+useCardBtn.addEventListener("click", ()=>{ useSelectedCard(); });
+
+rollBtn.addEventListener("click", ()=>{ rollDice(); });
+
+optA.addEventListener("click", ()=>{ applyD6Pick("A"); });
+optB.addEventListener("click", ()=>{ applyD6Pick("B"); });
+
+adaptMethod.addEventListener("change", ()=>{ onAdaptChange(); });
+
+// ============================
+// Init
+// ============================
+
+(function init(){
   renderTables();
-
-  drawBtn.addEventListener("click", drawCard);
-  rollBtn.addEventListener("click", rollDice);
-  resetBtn.addEventListener("click", resetAll);
-
-  document.addEventListener("pointerdown", ()=>{
-    if (!canSound()) return;
-    ensureAudio();
-  }, { once:true });
-}
-
-init();
+  resetAll();
+  newTurnFill(); // começa com mão cheia por padrão
+})();

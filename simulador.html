@@ -13,13 +13,13 @@
         <div class="logo">F</div>
         <div>
           <h1>Simulador — Cartas e Dados</h1>
-          <p>Compra de carta + rolagem d6/d8/d10 do Sebastian</p>
+          <p>Mão de até 7 cartas + rolagem d6/d8/d10 do Sebastian</p>
         </div>
       </div>
 
       <nav class="nav">
         <a href="index.html">Voltar</a>
-        <a href="#carta">Carta</a>
+        <a href="#mao">Cartas</a>
         <a href="#dados">Dados</a>
         <a href="#resultado">Resultado</a>
       </nav>
@@ -27,14 +27,44 @@
   </header>
 
   <main class="wrap">
-    <section id="carta" class="cardSection">
-      <h2>1) Puxar carta</h2>
+
+    <section id="mao" class="cardSection">
+      <h2>1) Cartas na mão (até 7)</h2>
       <p class="muted">
-        Clique em “Puxar carta” para revelar aleatoriamente uma carta (Quick, Arts ou Buster).
+        As cartas são a disponibilidade do turno. Você pode ter no máximo 7 cartas na mão.
+        Você compra cartas aleatórias e escolhe qual carta vai usar.
       </p>
 
       <div class="grid2">
         <div class="panel">
+          <h3>Comprar cartas</h3>
+
+          <div class="rulesMini">
+            <div class="ruleBox">
+              <div class="ruleHead">
+                <img class="ruleIcon" src="assets/card_buster.svg" alt="Buster"/>
+                <div class="ruleName">Buster</div>
+              </div>
+              <div class="ruleDesc">Buster foca em um inimigo (um alvo).</div>
+            </div>
+
+            <div class="ruleBox">
+              <div class="ruleHead">
+                <img class="ruleIcon" src="assets/card_quick.svg" alt="Quick"/>
+                <div class="ruleName">Quick</div>
+              </div>
+              <div class="ruleDesc">Quick foca em vários alvos (magia em área).</div>
+            </div>
+
+            <div class="ruleBox">
+              <div class="ruleHead">
+                <img class="ruleIcon" src="assets/card_arts.svg" alt="Arts"/>
+                <div class="ruleName">Arts</div>
+              </div>
+              <div class="ruleDesc">Arts causa um efeito em um alvo.</div>
+            </div>
+          </div>
+
           <div class="deckArea">
             <div id="deck" class="deck" aria-label="Baralho">
               <div class="cardBack"></div>
@@ -51,31 +81,43 @@
             </div>
 
             <div class="controls">
-              <button id="drawBtn" class="btn primary">Puxar carta</button>
+              <button id="newTurnBtn" class="btn primary">Novo turno (comprar até 7)</button>
+              <button id="drawOneBtn" class="btn">Comprar 1 carta</button>
               <button id="resetBtn" class="btn">Reset</button>
+
               <label class="toggle">
                 <input id="soundToggle" type="checkbox" checked />
                 <span>Som</span>
               </label>
-            </div>
-          </div>
-        </div>
 
-        <div class="panel">
-          <h3>Carta atual</h3>
-          <div id="cardDisplay" class="bigCard empty">
-            <div class="bigCardInner">
-              <div class="bigCardTop">
-                <span class="bigCardBadge">Aguardando</span>
-                <span class="bigCardSubtitle">Puxe uma carta para começar</span>
+              <div class="handCount">
+                <span>Cartas na mão:</span>
+                <strong id="handCount">0</strong><span>/7</span>
               </div>
-              <div class="bigCardType">—</div>
-              <div class="bigCardFooter">Quick / Arts / Buster</div>
             </div>
           </div>
 
           <div class="hint">
-            As cartas são do RPG. O simulador só ajuda a visualizar a puxada e os dados.
+            Você escolhe a carta usada. Depois de usar, role os dados.
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Sua mão</h3>
+          <p class="muted">Clique em uma carta para selecionar. Depois clique em “Usar carta selecionada”.</p>
+
+          <div id="handGrid" class="handGrid" aria-label="Mão de cartas"></div>
+
+          <div class="selectedBox">
+            <div class="selectedHeader">
+              <div>
+                <div class="k">Carta selecionada</div>
+                <div id="selectedName" class="selectedName">—</div>
+              </div>
+              <button id="useCardBtn" class="btn primary" disabled>Usar carta selecionada</button>
+            </div>
+
+            <div id="selectedDesc" class="selectedDesc">Selecione uma carta na mão para ver a descrição.</div>
           </div>
         </div>
       </div>
@@ -84,8 +126,8 @@
     <section id="dados" class="diceSection">
       <h2>2) Girar dados</h2>
       <p class="muted">
-        Depois de puxar a carta, clique em “Girar dados”. O d6 exige escolha entre duas opções.
-        Se o d8 cair em “Elemental clássico”, um d6 extra define o elemento.
+        Depois de usar a carta, clique em “Girar dados”. O d8 define o método, o d10 define o momento,
+        e o d6 abre a escolha tática. Se o d8 cair em “Elemental clássico”, um d6 extra define o elemento.
       </p>
 
       <div class="panel">
@@ -113,20 +155,8 @@
           <button id="rollBtn" class="btn primary" disabled>Girar dados</button>
         </div>
 
-        <div id="d6Choice" class="choice hidden">
-          <h3>Escolha do d6</h3>
-
-          <div id="preChoiceInfo" class="preChoiceInfo">
-            <div class="preTitle">Resultados antes da escolha:</div>
-            <div class="preLines" id="preLines">Role os dados para ver.</div>
-          </div>
-
-          <p class="muted" id="d6ChoiceHint">Role o d6 para aparecerem as opções.</p>
-
-          <div class="choiceGrid">
-            <button id="optA" class="btn choiceBtn"></button>
-            <button id="optB" class="btn choiceBtn"></button>
-          </div>
+        <div class="hint">
+          A escolha do d6 acontece no passo 3, junto do resultado.
         </div>
       </div>
     </section>
@@ -137,7 +167,7 @@
       <div class="panel">
         <div class="resultBlock">
           <div class="resultTitle">Combinação</div>
-          <div id="comboLine" class="resultMain">Puxe uma carta e role os dados.</div>
+          <div id="comboLine" class="resultMain">Escolha uma carta e role os dados.</div>
           <div id="comboSub" class="resultSub"></div>
         </div>
 
@@ -166,8 +196,47 @@
           </div>
         </div>
 
+        <div class="divider"></div>
+
+        <div id="d6Choice" class="choice hidden">
+          <h3>Escolha do d6</h3>
+
+          <div id="preChoiceInfo" class="preChoiceInfo">
+            <div class="preTitle">Resultados antes da escolha:</div>
+            <div class="preLines" id="preLines">Role os dados para ver.</div>
+          </div>
+
+          <p class="muted" id="d6ChoiceHint">Role os dados para aparecerem as opções.</p>
+
+          <div class="choiceGrid">
+            <button id="optA" class="btn choiceBtn"></button>
+            <button id="optB" class="btn choiceBtn"></button>
+          </div>
+
+          <div id="adaptWrap" class="adaptWrap hidden">
+            <div class="k">Adaptação ativa</div>
+            <div class="adaptRow">
+              <label for="adaptMethod" class="adaptLabel">Reinterpretar d8 como:</label>
+              <select id="adaptMethod" class="adaptSelect"></select>
+            </div>
+            <div class="adaptHint">
+              Adaptação (d6=5) permite reinterpretar o resultado do d8 de forma coerente.
+              Se escolher “Elemental clássico”, o simulador define um elemento por d6 extra.
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="spellBox">
+          <div class="spellTitle">Magia gerada</div>
+          <div id="spellSummary" class="spellSummary">—</div>
+          <div id="spellText" class="spellText">A descrição aparece depois que você escolher a opção do d6.</div>
+        </div>
+
         <div class="note">
-          O simulador não resolve acerto/falha e não muda regras do sistema. Ele só exibe a combinação.
+          O simulador não resolve acerto/falha e não substitui a decisão do mestre.
+          Ele só organiza a combinação e gera uma descrição temática.
         </div>
       </div>
     </section>
@@ -206,6 +275,7 @@
     </div>
   </footer>
 
+  <script src="magia.js"></script>
   <script src="simulador.js"></script>
 </body>
 </html>

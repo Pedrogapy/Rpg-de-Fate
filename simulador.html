@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simulador — Cartas e Dados</title>
+  <link rel="stylesheet" href="simulador.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo">F</div>
+        <div>
+          <h1>Simulador — Cartas e Dados</h1>
+          <p>Compra de carta + rolagem d6/d8/d10 do Sebastian</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="index.html">Voltar</a>
+        <a href="#carta">Carta</a>
+        <a href="#dados">Dados</a>
+        <a href="#resultado">Resultado</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="carta" class="cardSection">
+      <h2>1) Puxar carta</h2>
+      <p class="muted">
+        Clique em “Puxar carta” para revelar aleatoriamente uma carta (Quick, Arts ou Buster).
+      </p>
+
+      <div class="grid2">
+        <div class="panel">
+          <div class="deckArea">
+            <div id="deck" class="deck" aria-label="Baralho">
+              <div class="cardBack"></div>
+              <div class="cardBack"></div>
+              <div class="cardBack"></div>
+
+              <div id="flyingCard" class="flyingCard" aria-hidden="true">
+                <div class="cardFace">
+                  <div class="cardTitle">Carta</div>
+                  <div class="cardType">???</div>
+                  <div class="cardMark">FATE</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="controls">
+              <button id="drawBtn" class="btn primary">Puxar carta</button>
+              <button id="resetBtn" class="btn">Reset</button>
+              <label class="toggle">
+                <input id="soundToggle" type="checkbox" checked />
+                <span>Som</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Carta atual</h3>
+          <div id="cardDisplay" class="bigCard empty">
+            <div class="bigCardInner">
+              <div class="bigCardTop">
+                <span class="bigCardBadge">Aguardando</span>
+                <span class="bigCardSubtitle">Puxe uma carta para começar</span>
+              </div>
+              <div class="bigCardType">—</div>
+              <div class="bigCardFooter">Quick / Arts / Buster</div>
+            </div>
+          </div>
+
+          <div class="hint">
+            As cartas são do RPG. O simulador só ajuda a visualizar a puxada e os dados.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dados" class="diceSection">
+      <h2>2) Girar dados</h2>
+      <p class="muted">
+        Depois de puxar a carta, clique em “Girar dados”. O d6 exige escolha entre duas opções.
+      </p>
+
+      <div class="panel">
+        <div class="diceRow">
+          <div class="dieBox">
+            <div class="dieLabel">d6</div>
+            <div id="die6" class="die">—</div>
+          </div>
+          <div class="dieBox">
+            <div class="dieLabel">d8</div>
+            <div id="die8" class="die">—</div>
+          </div>
+          <div class="dieBox">
+            <div class="dieLabel">d10</div>
+            <div id="die10" class="die">—</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button id="rollBtn" class="btn primary" disabled>Girar dados</button>
+        </div>
+
+        <div id="d6Choice" class="choice hidden">
+          <h3>Escolha do d6</h3>
+          <p class="muted" id="d6ChoiceHint">Role o d6 para aparecerem as opções.</p>
+
+          <div class="choiceGrid">
+            <button id="optA" class="btn choiceBtn"></button>
+            <button id="optB" class="btn choiceBtn"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="resultado" class="resultSection">
+      <h2>3) Resultado</h2>
+
+      <div class="panel">
+        <div class="resultBlock">
+          <div class="resultTitle">Combinação</div>
+          <div id="comboLine" class="resultMain">Puxe uma carta e role os dados.</div>
+          <div id="comboSub" class="resultSub"></div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="resultDetails">
+          <div class="detail">
+            <div class="k">Carta</div>
+            <div class="v" id="outCard">—</div>
+          </div>
+          <div class="detail">
+            <div class="k">d8</div>
+            <div class="v" id="outD8">—</div>
+          </div>
+          <div class="detail">
+            <div class="k">d6</div>
+            <div class="v" id="outD6">—</div>
+          </div>
+          <div class="detail">
+            <div class="k">d10</div>
+            <div class="v" id="outD10">—</div>
+          </div>
+        </div>
+
+        <div class="note">
+          O simulador não resolve acerto/falha e não muda regras do sistema. Ele só exibe a combinação.
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Regras do Sebastian (texto do personagem)</h2>
+      <p class="muted">
+        O texto abaixo é o mesmo que você já definiu para o personagem (resumo em formato de simulador).
+      </p>
+
+      <details>
+        <summary>Ver tabelas completas (d8, d6, d10)</summary>
+        <div class="tables">
+          <div>
+            <h3>d8 — Método Taumatúrgico</h3>
+            <ol id="tableD8"></ol>
+          </div>
+
+          <div>
+            <h3>d6 — Escolha Tática</h3>
+            <div id="tableD6"></div>
+          </div>
+
+          <div>
+            <h3>d10 — Momento de Destaque</h3>
+            <ol id="tableD10"></ol>
+          </div>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap">
+      <span>Fate RPG — Simulador de Mesa</span>
+    </div>
+  </footer>
+
+  <script src="simulador.js"></script>
+</body>
+</html>

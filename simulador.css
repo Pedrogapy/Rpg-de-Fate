@@ -444,28 +444,8 @@ details summary{
   margin-top:10px;
   font-size:14px;
   line-height:1.5;
-  white-space: pre-line;
 }
 
-.handLimitControl{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  margin-top:10px;
-}
-.handLimitControl label{
-  opacity:.85;
-  font-size:14px;
-}
-.handLimitControl input{
-  width:72px;
-  padding:8px 10px;
-  border-radius:10px;
-  background:rgba(255,255,255,.06);
-  border:1px solid rgba(255,255,255,.12);
-  color:#fff;
-  outline:none;
-}
 
 /* Escolha do d6: botões com título + descrição */
 .choiceBtn{
@@ -489,4 +469,117 @@ details summary{
 .choiceBtn.selected{
   outline: 2px solid rgba(88,166,255,.65);
   box-shadow: 0 0 0 6px rgba(88,166,255,.12);
+}
+
+/* ============================
+   Novos componentes (combo, limite de mão, rolagem individual)
+   ============================ */
+
+.miniControl{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  background: rgba(255,255,255,.03);
+}
+.miniControl span{ opacity:.85; font-size:12px; }
+.miniControl input,
+.miniControl select{
+  flex:1;
+  background: rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius:10px;
+  color:#fff;
+  padding:8px 10px;
+  outline:none;
+}
+
+.comboPanel{
+  margin-top:12px;
+  padding:14px;
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:16px;
+  background: rgba(255,255,255,.03);
+}
+.comboHead{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+.comboHead h3{ margin:0; font-size:14px; }
+.comboHint{ opacity:.75; font-size:12px; line-height:1.2; max-width: 420px; }
+
+.comboSlots{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap:10px;
+  margin-top:12px;
+}
+.comboSlot{
+  position:relative;
+  padding:12px;
+  border:1px dashed rgba(255,255,255,.20);
+  border-radius:14px;
+  min-height:84px;
+  cursor:pointer;
+  overflow:hidden;
+}
+.comboSlot.filled{ border-style: solid; border-color: rgba(255,255,255,.12); }
+.comboSlot .slotTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.comboSlot .slotBadge{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.comboSlot .slotIcon{ width:18px; height:18px; opacity:.92; }
+.comboSlot .slotLabel{ font-size:13px; font-weight:700; }
+.comboSlot .slotSub{ margin-top:8px; opacity:.75; font-size:12px; }
+.comboSlot .slotActions{ display:flex; gap:6px; }
+.comboSlot .slotBtn{
+  background: rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.12);
+  color:#fff;
+  border-radius:10px;
+  padding:6px 8px;
+  font-size:12px;
+  cursor:pointer;
+}
+.comboSlot .slotBtn:disabled{ opacity:.45; cursor:not-allowed; }
+
+.comboSlot.quick{ background: radial-gradient(420px 260px at 18% 14%, rgba(55, 255, 201, .10), rgba(255,255,255,.02)); }
+.comboSlot.arts{  background: radial-gradient(420px 260px at 18% 14%, rgba(116, 163, 255, .10), rgba(255,255,255,.02)); }
+.comboSlot.buster{background: radial-gradient(420px 260px at 18% 14%, rgba(255, 84, 84, .10), rgba(255,255,255,.02)); }
+
+.comboActions{
+  margin-top:12px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  align-items:center;
+}
+
+.handCard.inCombo{
+  outline:2px solid rgba(255,255,255,.22);
+  box-shadow: 0 0 0 2px rgba(0,0,0,.35) inset;
+}
+
+.diceBtns{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:10px;
+}
+
+.smallNote{
+  opacity:.75;
+  font-size:12px;
+  line-height:1.25;
 }

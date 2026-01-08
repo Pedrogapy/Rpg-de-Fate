@@ -1,14 +1,13 @@
 // simulador.js
-// Fluxo: comprar cartas (mão até LIMITE) -> escolher carta usada -> rolar d6/d8/d10 (+d6 elemento se d8=1)
-// -> escolher opção do d6 no resultado -> gerar descrição.
-// Efeito real implementado:
-// - COMBO (d10): arma um bônus para o próximo turno. Se a próxima carta usada for DIFERENTE, a descrição/dano muda.
-// - LIMITE DA MÃO: controlado por input #handLimit (padrão 7), ajustável.
+// - Suporta combo de 1 a 3 cartas
+// - Permite rolar d6/d8/d10 separadamente (ou todos de uma vez)
+// - Limite de cartas na mão é configurável
+// - Permite escolher modo: Taumaturgia (magia) ou Volumen (familiar)
 
 function $(id){ return document.getElementById(id); }
 
 // ============================
-// Config
+// Config (cartas e tabelas)
 // ============================
 
 const CARD_TYPES = [
@@ -17,37 +16,35 @@ const CARD_TYPES = [
   { key:"buster", label:"Buster", css:"buster", icon:"assets/card_buster.svg", desc:"Buster foca em um inimigo (um alvo)." },
 ];
 
-const D8_METHODS  = Magia.D8;
-const D6_CHOICES  = Magia.D6;
+const D8_METHODS = Magia.D8;
+const D6_CHOICES = Magia.D6;
 const D10_MOMENTS = Magia.D10;
-const ELEMENTS    = Magia.ELEMENTS;
+const ELEMENTS = Magia.ELEMENTS;
 
 // ============================
 // Estado
 // ============================
 
 const state = {
-  hand: [],
-  selectedHandIndex: null,
-  usedCard: null,
+  nextCardId: 1,
 
-  // limite configurável
-  handLimit: 7,
+  hand: [],                 // {id,key,label,css,icon,desc}
+  selectedCardId: null,
+
+  combo: [],                // lista de ids (ordem importa)
+  usedCombo: null,          // { cards: [cardObj], mode: 'magia'|'volumen' }
 
   d6: null,
   d8: null,
   d10: null,
   elem: null,
 
-  d6Pick: null,           // "A" ou "B"
-  d6ChoiceName: null,     // nome final
+  rolled: { d6:false, d8:false, d10:false, elem:false },
 
-  methodOverride: null,   // usado apenas se d6=5 e opção A (Adaptação)
+  d6Pick: null,             // "A" ou "B"
+  d6ChoiceName: null,       // nome da escolha
 
-  // --- Combo (d10) real ---
-  comboArmed: false,      // veio do turno anterior
-  comboFromCardKey: null, // carta do turno anterior que gerou o Combo
-  comboApplied: false,    // aplicado neste turno (carta diferente)
+  methodOverride: null,     // usado apenas se d6=5 e opção A (Adaptação)
 };
 
 // ============================
@@ -62,16 +59,26 @@ const drawOneBtn = $("drawOneBtn");
 const resetBtn = $("resetBtn");
 const soundToggle = $("soundToggle");
 
-// novo: limite da mão
-const handLimitInput = $("handLimit");
+const handLimitInput = $("handLimitInput");
+const modeSelect = $("modeSelect");
 
 const handGrid = $("handGrid");
 const handCount = $("handCount");
 const selectedName = $("selectedName");
 const selectedDesc = $("selectedDesc");
-const useCardBtn = $("useCardBtn");
 
-const rollBtn = $("rollBtn");
+const addToComboBtn = $("addToComboBtn");
+const removeFromComboBtn = $("removeFromComboBtn");
+
+const comboSlots = $("comboSlots");
+const confirmComboBtn = $("confirmComboBtn");
+const clearComboBtn = $("clearComboBtn");
+
+const rollAllBtn = $("rollAllBtn");
+const rollD6Btn = $("rollD6Btn");
+const rollD8Btn = $("rollD8Btn");
+const rollD10Btn = $("rollD10Btn");
+
 const die6 = $("die6");
 const die8 = $("die8");
 const die10 = $("die10");
@@ -108,7 +115,7 @@ const tableD10 = $("tableD10");
 // ============================
 
 function playTone(freq=740, ms=80, type="triangle", gain=0.05){
-  if(!soundToggle || !soundToggle.checked) return;
+  if(!soundToggle.checked) return;
   try{
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const o = ctx.createOscillator();
@@ -120,12 +127,12 @@ function playTone(freq=740, ms=80, type="triangle", gain=0.05){
     o.start();
     o.stop(ctx.currentTime + ms/1000);
     setTimeout(()=>ctx.close(), ms+60);
-  }catch(_){}
+  }catch(_){ }
 }
 
 function playClick(){ playTone(740, 80, "triangle", 0.05); }
 function playRoll(){
-  if(!soundToggle || !soundToggle.checked) return;
+  if(!soundToggle.checked) return;
   try{
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const o = ctx.createOscillator();
@@ -138,7 +145,7 @@ function playRoll(){
     o.frequency.linearRampToValueAtTime(660, ctx.currentTime + 0.12);
     o.stop(ctx.currentTime + 0.14);
     setTimeout(()=>ctx.close(), 210);
-  }catch(_){}
+  }catch(_){ }
 }
 
 // ============================
@@ -153,80 +160,90 @@ function setDie(el, value){
   setTimeout(()=>el.classList.remove("shake"), 180);
 }
 
-function resetDiceUI(){
-  die6.textContent = "—";
-  die8.textContent = "—";
-  die10.textContent = "—";
-  dieElem.textContent = "—";
-  dieElemBox.classList.add("hidden");
+function getHandLimit(){
+  const v = parseInt(handLimitInput.value, 10);
+  return Number.isFinite(v) ? Math.max(1, Math.min(99, v)) : 7;
+}
+
+function saveHandLimit(){
+  try{ localStorage.setItem("handLimit", String(getHandLimit())); }catch(_){ }
+}
+
+function loadHandLimit(){
+  try{
+    const v = parseInt(localStorage.getItem("handLimit") || "7", 10);
+    if(Number.isFinite(v)) handLimitInput.value = String(Math.max(1, Math.min(99, v)));
+  }catch(_){ }
 }
 
 function chosenMethodIndex(){
   return state.methodOverride ?? state.d8;
 }
 
-function d8Text(idx){
-  return D8_METHODS[idx-1] || "—";
-}
-
-function d10Name(idx){
-  return D10_MOMENTS[idx-1]?.name || "—";
-}
-
+function d8Text(idx){ return D8_METHODS[idx-1] || "—"; }
+function d10Name(idx){ return D10_MOMENTS[idx-1]?.name || "—"; }
 function d10Text(idx){
   const o = D10_MOMENTS[idx-1];
   return o ? `${o.name}: ${o.desc}` : "—";
 }
+function elemText(idx){ return idx ? (ELEMENTS[idx-1] || "—") : "—"; }
 
-function elemText(idx){
-  return idx ? (ELEMENTS[idx-1] || "—") : "—";
-}
-
-function getD6Obj(d6){
-  return D6_CHOICES[d6-1] || null;
-}
-
+function getD6Obj(d6){ return D6_CHOICES[d6-1] || null; }
 function getD6ChoiceName(d6, pick){
   const o = getD6Obj(d6);
   if(!o) return "—";
   return pick === "A" ? o.pair[0] : o.pair[1];
 }
-
 function getD6ChoiceDesc(d6, pick){
   const o = getD6Obj(d6);
   if(!o) return "—";
   return pick === "A" ? o.a : o.b;
 }
 
-function clampHandLimit(n){
-  if(!Number.isFinite(n)) return 7;
-  n = Math.floor(n);
-  if(n < 1) n = 1;
-  if(n > 12) n = 12;
-  return n;
+function cardsLabel(cards){
+  return cards.map(c => c.label).join(" + ") || "—";
+}
+
+function resetDiceState(){
+  state.d6 = null; state.d8 = null; state.d10 = null; state.elem = null;
+  state.rolled = { d6:false, d8:false, d10:false, elem:false };
+  state.d6Pick = null;
+  state.d6ChoiceName = null;
+  state.methodOverride = null;
+
+  die6.textContent = "—";
+  die8.textContent = "—";
+  die10.textContent = "—";
+  dieElem.textContent = "—";
+  dieElemBox.classList.add("hidden");
+
+  hideD6Choice();
+}
+
+function canChooseD6(){
+  const methodIdx = chosenMethodIndex();
+  const needsElem = (methodIdx === 1);
+  if(needsElem && !state.rolled.elem) return false;
+  return state.rolled.d6 && state.rolled.d8 && state.rolled.d10;
 }
 
 // ============================
-// Cartas
+// Cartas: comprar + mão
 // ============================
 
 function animateDraw(card){
-  if(!deck || !flyingCard) return;
-
   deck.classList.remove("isDrawing");
   void deck.offsetWidth;
   deck.classList.add("isDrawing");
 
   const typeEl = flyingCard.querySelector(".cardType");
-  if(typeEl) typeEl.textContent = card.label;
+  typeEl.textContent = card.label;
 
   const face = flyingCard.querySelector(".cardFace");
-  if(face){
-    face.style.borderColor = `rgba(255,255,255,.10)`;
-    face.style.background =
-      `radial-gradient(520px 280px at 12% 18%, rgba(255,255,255,.12), rgba(255,255,255,.03)),` +
-      `linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02))`;
-  }
+  face.style.borderColor = `rgba(255,255,255,.10)`;
+  face.style.background =
+    `radial-gradient(520px 280px at 12% 18%, rgba(255,255,255,.12), rgba(255,255,255,.03)),` +
+    `linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02))`;
 
   flyingCard.classList.remove("quick","arts","buster");
   flyingCard.classList.add(card.css);
@@ -235,25 +252,38 @@ function animateDraw(card){
 }
 
 function drawCardRandom(){
-  return CARD_TYPES[randInt(0, CARD_TYPES.length-1)];
+  const picked = CARD_TYPES[randInt(0, CARD_TYPES.length-1)];
+  return {
+    id: state.nextCardId++,
+    key: picked.key,
+    label: picked.label,
+    css: picked.css,
+    icon: picked.icon,
+    desc: picked.desc,
+  };
 }
 
 function addToHand(card){
-  if(state.hand.length >= state.handLimit) return false;
+  if(state.hand.length >= getHandLimit()) return false;
   state.hand.push(card);
   return true;
 }
 
-function updateHandCount(){
-  if(!handCount) return;
-  handCount.textContent = `${state.hand.length}/${state.handLimit}`;
+function updateHandCount(){ handCount.textContent = String(state.hand.length); }
+
+function isCardInCombo(cardId){
+  return state.combo.includes(cardId);
+}
+
+function getSelectedCard(){
+  return state.hand.find(c => c.id === state.selectedCardId) || null;
 }
 
 function renderHand(){
-  if(!handGrid) return;
-
   handGrid.innerHTML = "";
-  for(let i=0;i<state.handLimit;i++){
+
+  const maxSlots = Math.max(getHandLimit(), 7); // mantém grid com 7 por estética
+  for(let i=0;i<maxSlots;i++){
     const card = state.hand[i] || null;
 
     const div = document.createElement("div");
@@ -270,7 +300,8 @@ function renderHand(){
     }
 
     div.classList.add(card.css);
-    if(state.selectedHandIndex === i) div.classList.add("selected");
+    if(state.selectedCardId === card.id) div.classList.add("selected");
+    if(isCardInCombo(card.id)) div.classList.add("inCombo");
 
     div.innerHTML = `
       <div class="handGlow"></div>
@@ -283,7 +314,7 @@ function renderHand(){
 
     div.addEventListener("click", ()=>{
       playClick();
-      state.selectedHandIndex = i;
+      state.selectedCardId = card.id;
       renderHand();
       renderSelectedPanel();
     });
@@ -295,23 +326,25 @@ function renderHand(){
 }
 
 function renderSelectedPanel(){
-  if(!selectedName || !selectedDesc || !useCardBtn) return;
-
-  if(state.selectedHandIndex == null || !state.hand[state.selectedHandIndex]){
+  const card = getSelectedCard();
+  if(!card){
     selectedName.textContent = "—";
     selectedDesc.textContent = "Selecione uma carta na mão para ver a descrição.";
-    useCardBtn.disabled = true;
+    addToComboBtn.disabled = true;
+    removeFromComboBtn.disabled = true;
     return;
   }
 
-  const card = state.hand[state.selectedHandIndex];
   selectedName.textContent = card.label;
   selectedDesc.textContent = card.desc;
-  useCardBtn.disabled = false;
+
+  const inCombo = isCardInCombo(card.id);
+  addToComboBtn.disabled = inCombo || state.combo.length >= 3;
+  removeFromComboBtn.disabled = !inCombo;
 }
 
 function newTurnFill(){
-  while(state.hand.length < state.handLimit){
+  while(state.hand.length < getHandLimit()){
     const c = drawCardRandom();
     addToHand(c);
     animateDraw(c);
@@ -319,98 +352,303 @@ function newTurnFill(){
   playClick();
   renderHand();
   renderSelectedPanel();
+  updateComboUI();
 }
 
 function drawOne(){
-  if(state.hand.length >= state.handLimit) return;
+  if(state.hand.length >= getHandLimit()) return;
   const c = drawCardRandom();
   addToHand(c);
   animateDraw(c);
   playClick();
   renderHand();
   renderSelectedPanel();
+  updateComboUI();
 }
 
 // ============================
-// Usar carta -> habilita rolagem
+// Combo
 // ============================
 
-function useSelectedCard(){
-  if(state.selectedHandIndex == null || !state.hand[state.selectedHandIndex]) return;
+function addSelectedToCombo(){
+  const card = getSelectedCard();
+  if(!card) return;
+  if(state.combo.length >= 3) return;
+  if(isCardInCombo(card.id)) return;
+
+  playClick();
+  state.combo.push(card.id);
+  renderHand();
+  renderSelectedPanel();
+  updateComboUI();
+}
+
+function removeSelectedFromCombo(){
+  const card = getSelectedCard();
+  if(!card) return;
+  if(!isCardInCombo(card.id)) return;
+
+  playClick();
+  state.combo = state.combo.filter(id => id !== card.id);
+  renderHand();
+  renderSelectedPanel();
+  updateComboUI();
+}
+
+function moveComboCard(cardId, dir){
+  const idx = state.combo.indexOf(cardId);
+  if(idx < 0) return;
+  const next = idx + dir;
+  if(next < 0 || next >= state.combo.length) return;
+
+  const arr = state.combo.slice();
+  const tmp = arr[idx];
+  arr[idx] = arr[next];
+  arr[next] = tmp;
+  state.combo = arr;
+  updateComboUI();
+}
+
+function removeComboCard(cardId){
+  state.combo = state.combo.filter(id => id !== cardId);
+  updateComboUI();
+  renderHand();
+  renderSelectedPanel();
+}
+
+function updateComboUI(){
+  comboSlots.innerHTML = "";
+
+  const cards = state.combo
+    .map(id => state.hand.find(c => c.id === id))
+    .filter(Boolean);
+
+  for(let i=0;i<3;i++){
+    const c = cards[i] || null;
+    const slot = document.createElement("div");
+    slot.className = "comboSlot";
+
+    if(!c){
+      slot.classList.add("empty");
+      slot.innerHTML = `<div class="slotTitle">Slot ${i+1}</div><div class="slotSub">—</div>`;
+      comboSlots.appendChild(slot);
+      continue;
+    }
+
+    slot.classList.add(c.css);
+    slot.innerHTML = `
+      <div class="slotTitle">Slot ${i+1}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px;">
+        <img class="handIcon" src="${c.icon}" alt="${c.label}" />
+        <div>
+          <div style="font-weight:700;">${c.label}</div>
+          <div class="slotSub">clique para remover • use ◀ ▶ para reordenar</div>
+        </div>
+      </div>
+      <div class="slotBtns">
+        <button class="btn small" data-act="left">◀</button>
+        <button class="btn small" data-act="right">▶</button>
+        <button class="btn small" data-act="remove">Remover</button>
+      </div>
+    `;
+
+    slot.addEventListener("click", (ev)=>{
+      const t = ev.target;
+      if(t && t.dataset && t.dataset.act){
+        ev.stopPropagation();
+        playClick();
+        const act = t.dataset.act;
+        if(act === "left") moveComboCard(c.id, -1);
+        if(act === "right") moveComboCard(c.id, +1);
+        if(act === "remove") removeComboCard(c.id);
+        return;
+      }
+      // clique no slot remove
+      playClick();
+      removeComboCard(c.id);
+    });
+
+    comboSlots.appendChild(slot);
+  }
+
+  confirmComboBtn.disabled = (cards.length === 0);
+  clearComboBtn.disabled = (cards.length === 0);
+
+  // se existir um combo ainda não confirmado, não atrapalha, mas impede confirmar novamente sem reset
+  if(state.usedCombo){
+    confirmComboBtn.disabled = true;
+    clearComboBtn.disabled = true;
+  }
+}
+
+function clearCombo(){
+  playClick();
+  state.combo = [];
+  updateComboUI();
+  renderHand();
+  renderSelectedPanel();
+}
+
+function confirmCombo(){
+  if(state.usedCombo) return;
+
+  const cards = state.combo
+    .map(id => state.hand.find(c => c.id === id))
+    .filter(Boolean);
+
+  if(cards.length === 0) return;
 
   playClick();
 
-  const chosen = state.hand[state.selectedHandIndex];
+  // Remove cartas do combo da mão
+  const usedIds = new Set(cards.map(c => c.id));
+  state.hand = state.hand.filter(c => !usedIds.has(c.id));
 
-  // --- aplica Combo armado do turno anterior (se a carta for diferente) ---
-  state.comboApplied = false;
-  if(state.comboArmed && state.comboFromCardKey){
-    if(chosen.key !== state.comboFromCardKey){
-      state.comboApplied = true;
-    }
-    // efeito vale só para o “próximo turno”, então desarma aqui de qualquer jeito
-    state.comboArmed = false;
-    state.comboFromCardKey = null;
-  }
+  state.usedCombo = {
+    cards,
+    mode: modeSelect.value === "volumen" ? "volumen" : "magia",
+  };
 
-  state.usedCard = chosen;
-  state.hand.splice(state.selectedHandIndex, 1);
-  state.selectedHandIndex = null;
+  // limpa seleção e combo
+  state.selectedCardId = null;
+  state.combo = [];
 
-  // reseta dados e escolhas
-  state.d6 = null; state.d8 = null; state.d10 = null; state.elem = null;
-  state.d6Pick = null; state.d6ChoiceName = null;
-  state.methodOverride = null;
-
-  resetDiceUI();
+  resetDiceState();
+  clearOutputs();
   hideD6Choice();
 
-  if(rollBtn) rollBtn.disabled = false;
+  rollAllBtn.disabled = false;
+  rollD6Btn.disabled = false;
+  rollD8Btn.disabled = false;
+  rollD10Btn.disabled = false;
 
   renderHand();
   renderSelectedPanel();
+  updateComboUI();
   updateOutputsBeforeRoll();
 }
 
 // ============================
-// Rolagem
+// Rolagem (individual)
 // ============================
 
-function rollDice(){
-  if(!state.usedCard) return;
-
+function animateRoll(sides, onDone){
   playRoll();
-
-  const endAt = performance.now() + 900;
+  const endAt = performance.now() + 700;
   const tick = () => {
-    die6.textContent  = String(randInt(1,6));
-    die8.textContent  = String(randInt(1,8));
-    die10.textContent = String(randInt(1,10));
-
+    onDone(randInt(1, sides), true);
     if(performance.now() < endAt){
       requestAnimationFrame(tick);
     } else {
-      state.d6  = randInt(1,6);
-      state.d8  = randInt(1,8);
+      onDone(randInt(1, sides), false);
+    }
+  };
+  tick();
+}
+
+function ensureElementIfNeeded(){
+  const methodIdx = chosenMethodIndex();
+  if(methodIdx !== 1) {
+    state.elem = null;
+    state.rolled.elem = false;
+    dieElemBox.classList.add("hidden");
+    dieElem.textContent = "—";
+    return;
+  }
+
+  if(state.rolled.elem && state.elem) return;
+  state.elem = randInt(1, 6);
+  state.rolled.elem = true;
+  dieElemBox.classList.remove("hidden");
+  setDie(dieElem, state.elem);
+}
+
+function maybeShowD6Choice(){
+  if(!canChooseD6()) return;
+  if(state.d6Pick) return;
+  showD6Choice();
+  updatePreChoiceInfo();
+  updateOutputsAfterRollBeforeChoice();
+}
+
+function rollD8(){
+  if(!state.usedCombo || state.rolled.d8) return;
+  animateRoll(8, (v, spinning)=>{
+    die8.textContent = String(v);
+    if(!spinning){
+      state.d8 = v;
+      state.rolled.d8 = true;
+      setDie(die8, v);
+
+      // elemento se método=1
+      state.methodOverride = null; // rolar d8 de novo reseta override
+      ensureElementIfNeeded();
+
+      updateOutputsAfterAnyRoll();
+      maybeShowD6Choice();
+    }
+  });
+}
+
+function rollD10(){
+  if(!state.usedCombo || state.rolled.d10) return;
+  animateRoll(10, (v, spinning)=>{
+    die10.textContent = String(v);
+    if(!spinning){
+      state.d10 = v;
+      state.rolled.d10 = true;
+      setDie(die10, v);
+      updateOutputsAfterAnyRoll();
+      maybeShowD6Choice();
+    }
+  });
+}
+
+function rollD6(){
+  if(!state.usedCombo || state.rolled.d6) return;
+  animateRoll(6, (v, spinning)=>{
+    die6.textContent = String(v);
+    if(!spinning){
+      state.d6 = v;
+      state.rolled.d6 = true;
+      setDie(die6, v);
+      updateOutputsAfterAnyRoll();
+      maybeShowD6Choice();
+    }
+  });
+}
+
+function rollAll(){
+  if(!state.usedCombo) return;
+  if(state.rolled.d6 || state.rolled.d8 || state.rolled.d10) return;
+
+  // rola os três em paralelo (animação simples)
+  playRoll();
+  const endAt = performance.now() + 900;
+  const tick = () => {
+    die6.textContent = String(randInt(1,6));
+    die8.textContent = String(randInt(1,8));
+    die10.textContent = String(randInt(1,10));
+    if(performance.now() < endAt){
+      requestAnimationFrame(tick);
+    } else {
+      state.d6 = randInt(1,6);
+      state.d8 = randInt(1,8);
       state.d10 = randInt(1,10);
 
-      setDie(die6,  state.d6);
-      setDie(die8,  state.d8);
+      state.rolled.d6 = true;
+      state.rolled.d8 = true;
+      state.rolled.d10 = true;
+
+      setDie(die6, state.d6);
+      setDie(die8, state.d8);
       setDie(die10, state.d10);
 
-      // elemento se d8=1
-      state.elem = null;
-      if(state.d8 === 1){
-        state.elem = randInt(1,6);
-        dieElemBox.classList.remove("hidden");
-        setDie(dieElem, state.elem);
-      } else {
-        dieElemBox.classList.add("hidden");
-      }
+      state.methodOverride = null;
+      ensureElementIfNeeded();
 
-      showD6Choice();
-      updatePreChoiceInfo();
-      updateOutputsAfterRollBeforeChoice();
+      updateOutputsAfterAnyRoll();
+      maybeShowD6Choice();
     }
   };
   tick();
@@ -429,7 +667,8 @@ function showD6Choice(){
     d6ChoiceHint.textContent = "d6 inválido.";
     optA.innerHTML = "—";
     optB.innerHTML = "—";
-    optA.disabled = true; optB.disabled = true;
+    optA.disabled = true;
+    optB.disabled = true;
     return;
   }
 
@@ -443,6 +682,7 @@ function showD6Choice(){
 
   optA.classList.remove("selected");
   optB.classList.remove("selected");
+
   optA.disabled = false;
   optB.disabled = false;
 }
@@ -454,8 +694,12 @@ function hideD6Choice(){
 
 function updatePreChoiceInfo(){
   const methodIdx = chosenMethodIndex();
+  const combo = state.usedCombo ? cardsLabel(state.usedCombo.cards) : "—";
+  const mode = state.usedCombo ? (state.usedCombo.mode === "volumen" ? "Volumen" : "Taumaturgia") : "—";
+
   preLines.innerHTML = `
-    <div><strong>Carta:</strong> ${state.usedCard ? state.usedCard.label : "—"}</div>
+    <div><strong>Combo:</strong> ${combo}</div>
+    <div><strong>Modo:</strong> ${mode}</div>
     <div><strong>d8:</strong> ${d8Text(methodIdx)}${state.methodOverride ? " (reinterpretado)" : ""}</div>
     <div><strong>d10:</strong> ${d10Name(state.d10)}</div>
     <div><strong>Elemento:</strong> ${methodIdx === 1 ? elemText(state.elem) : "—"}</div>
@@ -475,6 +719,7 @@ function setAdaptSelect(){
 
 function applyD6Pick(pick){
   if(!state.d6) return;
+  if(!canChooseD6()) return;
 
   playClick();
 
@@ -505,17 +750,8 @@ function onAdaptChange(){
 
   state.methodOverride = newIdx;
 
-  // se reinterpretar para elemental, define elemento
-  if(state.methodOverride === 1){
-    if(!state.elem){
-      state.elem = randInt(1,6);
-      dieElemBox.classList.remove("hidden");
-      setDie(dieElem, state.elem);
-    }
-  } else {
-    state.elem = null;
-    dieElemBox.classList.add("hidden");
-  }
+  // se virar elemental, precisa de elemento
+  ensureElementIfNeeded();
 
   updatePreChoiceInfo();
   updateFinalResult();
@@ -526,7 +762,7 @@ function onAdaptChange(){
 // ============================
 
 function clearOutputs(){
-  comboLine.textContent = "Escolha uma carta e role os dados.";
+  comboLine.textContent = "Monte um combo e role os dados.";
   comboSub.textContent = "";
 
   outCard.textContent = "—";
@@ -536,42 +772,54 @@ function clearOutputs(){
   outElem.textContent = "—";
 
   spellSummary.textContent = "—";
-  spellText.textContent = "A descrição aparece depois que você escolher a opção do d6.";
+  spellText.textContent = "A descrição aparece depois que você fechar a escolha do d6.";
 }
 
 function updateOutputsBeforeRoll(){
   clearOutputs();
-  outCard.textContent = state.usedCard ? `${state.usedCard.label} — ${state.usedCard.desc}` : "—";
 
-  let extra = "";
-  if(state.comboApplied){
-    extra = " (Combo ativado: carta diferente do turno anterior)";
+  const combo = state.usedCombo ? cardsLabel(state.usedCombo.cards) : "—";
+  const mode = state.usedCombo ? (state.usedCombo.mode === "volumen" ? "Volumen" : "Taumaturgia") : "—";
+
+  outCard.textContent = state.usedCombo ? `${combo} — modo: ${mode}` : "—";
+
+  comboLine.textContent = state.usedCombo ? `Combo confirmado: ${combo}` : "Monte um combo para começar.";
+  comboSub.textContent = state.usedCombo ? "Role d6/d8/d10 (em qualquer ordem)." : "";
+}
+
+function updateOutputsAfterAnyRoll(){
+  if(!state.usedCombo){
+    clearOutputs();
+    return;
   }
 
-  comboLine.textContent = state.usedCard
-    ? `Carta usada: ${state.usedCard.label}${extra} (agora role os dados)`
-    : "Escolha uma carta e role os dados.";
+  const methodIdx = chosenMethodIndex();
+  const combo = cardsLabel(state.usedCombo.cards);
+  const mode = (state.usedCombo.mode === "volumen" ? "Volumen" : "Taumaturgia");
 
-  comboSub.textContent = state.usedCard ? "Clique em “Girar dados”." : "";
+  outCard.textContent = `${combo} — modo: ${mode}`;
+
+  outD8.textContent = state.rolled.d8 ? `d8(${state.d8}) — ${d8Text(methodIdx)}${state.methodOverride ? " (reinterpretado)" : ""}` : "d8 — pendente";
+  outD10.textContent = state.rolled.d10 ? `d10(${state.d10}) — ${d10Text(state.d10)}` : "d10 — pendente";
+  outD6.textContent = state.rolled.d6 ? (state.d6Pick ? `d6(${state.d6}) — ${state.d6ChoiceName}` : `d6(${state.d6}) — escolha pendente`) : "d6 — pendente";
+
+  outElem.textContent = (methodIdx === 1 && state.rolled.elem) ? elemText(state.elem) : (methodIdx === 1 ? "pendente" : "—");
+
+  const bits = [];
+  if(state.rolled.d8) bits.push(`d8(${state.d8})`);
+  if(state.rolled.d6) bits.push(`d6(${state.d6})`);
+  if(state.rolled.d10) bits.push(`d10(${state.d10})`);
+  comboLine.textContent = `${combo} + ${bits.join(" + ") || "role os dados"}`;
 }
 
 function updateOutputsAfterRollBeforeChoice(){
-  const methodIdx = chosenMethodIndex();
-
-  outCard.textContent = `${state.usedCard.label} — ${state.usedCard.desc}`;
-  outD8.textContent = `d8(${state.d8}) — ${d8Text(methodIdx)}`;
-  outD10.textContent = `d10(${state.d10}) — ${d10Text(state.d10)}`;
-  outD6.textContent = `d6(${state.d6}) — escolha pendente`;
-  outElem.textContent = (methodIdx === 1) ? elemText(state.elem) : "—";
-
-  comboLine.textContent = `${state.usedCard.label} + d8(${state.d8}) + d6(${state.d6}) + d10(${state.d10})`;
-  comboSub.textContent = "Escolha a opção do d6 para fechar a magia.";
-
-  spellSummary.textContent = "—";
-  spellText.textContent = "Escolha a opção do d6 para gerar a descrição temática.";
+  // mantido por compatibilidade visual (chamado após abrir escolha)
+  updateOutputsAfterAnyRoll();
+  comboSub.textContent = "Escolha a opção do d6 para fechar o efeito.";
 }
 
 function updateFinalResult(){
+  if(!state.usedCombo) return;
   if(!state.d6Pick) return;
 
   const methodIdx = chosenMethodIndex();
@@ -586,42 +834,34 @@ function updateFinalResult(){
   outD6.textContent = `d6(${state.d6}) — ${state.d6ChoiceName} — ${d6Desc}`;
   outElem.textContent = elemLabel ? elemLabel : "—";
 
-  let combo = `${state.usedCard.label} + d8(${methodIdx}${state.methodOverride ? "*" : ""}) + d6(${state.d6}:${state.d6ChoiceName}) + d10(${state.d10}:${d10N})`;
-  if(elemLabel) combo += ` + elemento(${elemLabel})`;
+  const combo = cardsLabel(state.usedCombo.cards);
+  const mode = (state.usedCombo.mode === "volumen" ? "Volumen" : "Taumaturgia");
 
-  comboLine.textContent = combo;
+  comboLine.textContent = `${combo} — ${mode}`;
+  comboSub.textContent = `${methodLabel}${elemLabel ? ` (${elemLabel})` : ""} | ${state.d6ChoiceName} | ${d10N}`;
 
-  const comboTag = state.comboApplied ? " | Combo ativado (carta diferente)" : "";
-  comboSub.textContent = `Método: ${methodLabel}${elemLabel ? ` (${elemLabel})` : ""} | Escolha: ${d6Desc} | Momento: ${D10_MOMENTS[state.d10-1].desc}${comboTag}`;
-
-  // Gera texto da magia (comboApplied altera a descrição/dano)
   const spell = Magia.generate({
-    cardKey: state.usedCard.key,
+    cards: state.usedCombo.cards.map(c => c.key),
+    mode: state.usedCombo.mode,
     methodIndex: methodIdx,
     elementLabel: elemLabel,
     d6ChoiceName: state.d6ChoiceName,
     d10Index: state.d10,
-    comboApplied: state.comboApplied,
   });
 
   spellSummary.textContent = spell.summary;
   spellText.textContent = spell.text;
 
-  // Recuperação compra 1 carta (respeitando limite)
+  // Recuperação compra 1 carta (respeitando limite configurado)
   if(state.d6 === 6 && state.d6Pick === "B"){
-    if(state.hand.length < state.handLimit){
+    if(state.hand.length < getHandLimit()){
       const c = drawCardRandom();
       addToHand(c);
       animateDraw(c);
       renderHand();
       renderSelectedPanel();
+      updateComboUI();
     }
-  }
-
-  // Se o Momento foi COMBO, arma para o próximo turno
-  if(d10N === "Combo"){
-    state.comboArmed = true;
-    state.comboFromCardKey = state.usedCard.key;
   }
 }
 
@@ -630,61 +870,33 @@ function updateFinalResult(){
 // ============================
 
 function renderTables(){
-  if(tableD8){
-    tableD8.innerHTML = "";
-    D8_METHODS.forEach((t)=>{
-      const li = document.createElement("li");
-      li.textContent = t;
-      tableD8.appendChild(li);
-    });
-  }
+  tableD8.innerHTML = "";
+  D8_METHODS.forEach((t)=>{
+    const li = document.createElement("li");
+    li.textContent = t;
+    tableD8.appendChild(li);
+  });
 
-  if(tableD10){
-    tableD10.innerHTML = "";
-    D10_MOMENTS.forEach((o)=>{
-      const li = document.createElement("li");
-      li.textContent = `${o.name} — ${o.desc}`;
-      tableD10.appendChild(li);
-    });
-  }
+  tableD10.innerHTML = "";
+  D10_MOMENTS.forEach((o)=>{
+    const li = document.createElement("li");
+    li.textContent = `${o.name} — ${o.desc}`;
+    tableD10.appendChild(li);
+  });
 
-  if(tableD6){
-    tableD6.innerHTML = "";
-    D6_CHOICES.forEach((o, i)=>{
-      const box = document.createElement("div");
-      box.className = "ruleBox";
-      box.innerHTML = `
-        <div class="ruleHead">
-          <div class="ruleName">${i+1}) ${o.pair[0]} ou ${o.pair[1]}</div>
-        </div>
-        <div class="ruleDesc">${o.a}</div>
-        <div class="ruleDesc" style="margin-top:6px">${o.b}</div>
-      `;
-      tableD6.appendChild(box);
-    });
-  }
-}
-
-// ============================
-// Limite da mão (input)
-// ============================
-
-function applyHandLimitFromUI(){
-  if(!handLimitInput) return;
-  const v = clampHandLimit(parseInt(handLimitInput.value, 10));
-  handLimitInput.value = String(v);
-  state.handLimit = v;
-
-  // se reduzir e a mão ficou maior que o limite, corta o excesso do fim
-  if(state.hand.length > state.handLimit){
-    state.hand = state.hand.slice(0, state.handLimit);
-    if(state.selectedHandIndex != null && state.selectedHandIndex >= state.handLimit){
-      state.selectedHandIndex = null;
-    }
-  }
-
-  renderHand();
-  renderSelectedPanel();
+  tableD6.innerHTML = "";
+  D6_CHOICES.forEach((o, i)=>{
+    const box = document.createElement("div");
+    box.className = "ruleBox";
+    box.innerHTML = `
+      <div class="ruleHead">
+        <div class="ruleName">${i+1}) ${o.pair[0]} ou ${o.pair[1]}</div>
+      </div>
+      <div class="ruleDesc">${o.a}</div>
+      <div class="ruleDesc" style="margin-top:6px">${o.b}</div>
+    `;
+    tableD6.appendChild(box);
+  });
 }
 
 // ============================
@@ -693,57 +905,62 @@ function applyHandLimitFromUI(){
 
 function resetAll(){
   state.hand = [];
-  state.selectedHandIndex = null;
-  state.usedCard = null;
+  state.combo = [];
+  state.usedCombo = null;
+  state.selectedCardId = null;
 
-  state.d6 = null; state.d8 = null; state.d10 = null; state.elem = null;
-  state.d6Pick = null; state.d6ChoiceName = null;
-  state.methodOverride = null;
-
-  state.comboArmed = false;
-  state.comboFromCardKey = null;
-  state.comboApplied = false;
-
-  resetDiceUI();
-  hideD6Choice();
+  resetDiceState();
   clearOutputs();
 
-  if(rollBtn) rollBtn.disabled = true;
+  rollAllBtn.disabled = true;
+  rollD6Btn.disabled = true;
+  rollD8Btn.disabled = true;
+  rollD10Btn.disabled = true;
 
   renderHand();
   renderSelectedPanel();
+  updateComboUI();
 }
 
 // ============================
 // Eventos
 // ============================
 
-if(newTurnBtn) newTurnBtn.addEventListener("click", ()=>{ newTurnFill(); });
-if(drawOneBtn) drawOneBtn.addEventListener("click", ()=>{ drawOne(); });
+newTurnBtn.addEventListener("click", ()=>{ newTurnFill(); });
+drawOneBtn.addEventListener("click", ()=>{ drawOne(); });
 
-if(resetBtn) resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
+resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); newTurnFill(); });
 
-if(useCardBtn) useCardBtn.addEventListener("click", ()=>{ useSelectedCard(); });
+addToComboBtn.addEventListener("click", ()=>{ addSelectedToCombo(); });
+removeFromComboBtn.addEventListener("click", ()=>{ removeSelectedFromCombo(); });
 
-if(rollBtn) rollBtn.addEventListener("click", ()=>{ rollDice(); });
+confirmComboBtn.addEventListener("click", ()=>{ confirmCombo(); });
+clearComboBtn.addEventListener("click", ()=>{ clearCombo(); });
 
-if(optA) optA.addEventListener("click", ()=>{ applyD6Pick("A"); });
-if(optB) optB.addEventListener("click", ()=>{ applyD6Pick("B"); });
+rollAllBtn.addEventListener("click", ()=>{ rollAll(); });
+rollD6Btn.addEventListener("click", ()=>{ rollD6(); });
+rollD8Btn.addEventListener("click", ()=>{ rollD8(); });
+rollD10Btn.addEventListener("click", ()=>{ rollD10(); });
 
-if(adaptMethod) adaptMethod.addEventListener("change", ()=>{ onAdaptChange(); });
+optA.addEventListener("click", ()=>{ applyD6Pick("A"); });
+optB.addEventListener("click", ()=>{ applyD6Pick("B"); });
 
-if(handLimitInput){
-  handLimitInput.addEventListener("change", ()=>{ playClick(); applyHandLimitFromUI(); });
-  handLimitInput.addEventListener("input", ()=>{ applyHandLimitFromUI(); });
-}
+adaptMethod.addEventListener("change", ()=>{ onAdaptChange(); });
+
+handLimitInput.addEventListener("change", ()=>{
+  saveHandLimit();
+  // atualiza render e impede draws se estiver acima
+  renderHand();
+  updateComboUI();
+});
 
 // ============================
 // Init
 // ============================
 
 (function init(){
+  loadHandLimit();
   renderTables();
-  if(handLimitInput) applyHandLimitFromUI();
   resetAll();
-  newTurnFill(); // começa com mão cheia por padrão
+  newTurnFill();
 })();

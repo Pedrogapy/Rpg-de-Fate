@@ -1,6 +1,7 @@
 // simulador.js
 // Fiel ao texto final do usuário. Não inventa regra nova fora do que foi definido.
-// Fluxo: comprar cartas (mão até 7) -> escolher carta usada -> rolar d6/d8/d10 (+d6 elemento se d8=1) -> escolher opção do d6 no resultado -> gerar descrição.
+// Fluxo: comprar cartas (mão até 7) -> escolher carta usada -> rolar d6/d8/d10 (+d6 elemento se d8=1)
+// -> escolher opção do d6 no resultado -> gerar descrição.
 
 function $(id){ return document.getElementById(id); }
 
@@ -14,13 +15,10 @@ const CARD_TYPES = [
   { key:"buster", label:"Buster", css:"buster", icon:"assets/card_buster.svg", desc:"Buster foca em um inimigo (um alvo)." },
 ];
 
-const D8_METHODS = Magia.D8;
-
-const D6_CHOICES = Magia.D6;
-
+const D8_METHODS  = Magia.D8;
+const D6_CHOICES  = Magia.D6;
 const D10_MOMENTS = Magia.D10;
-
-const ELEMENTS = Magia.ELEMENTS;
+const ELEMENTS    = Magia.ELEMENTS;
 
 // ============================
 // Estado
@@ -184,7 +182,8 @@ function getD6ChoiceName(d6, pick){
 function getD6ChoiceDesc(d6, pick){
   const o = getD6Obj(d6);
   if(!o) return "—";
-  return pick === "A" ? o.A : o.B;
+  // Magia.D6 usa 'a' e 'b' minúsculos
+  return pick === "A" ? o.a : o.b;
 }
 
 // ============================
@@ -212,8 +211,7 @@ function animateDraw(card){
 }
 
 function drawCardRandom(){
-  const picked = CARD_TYPES[randInt(0, CARD_TYPES.length-1)];
-  return picked;
+  return CARD_TYPES[randInt(0, CARD_TYPES.length-1)];
 }
 
 function addToHand(card){
@@ -341,12 +339,12 @@ function rollDice(){
 
   playRoll();
 
-  // animação rápida
   const endAt = performance.now() + 900;
   const tick = () => {
     die6.textContent = String(randInt(1,6));
     die8.textContent = String(randInt(1,8));
     die10.textContent = String(randInt(1,10));
+
     if(performance.now() < endAt){
       requestAnimationFrame(tick);
     } else {
@@ -366,6 +364,7 @@ function rollDice(){
         setDie(dieElem, state.elem);
       } else {
         dieElemBox.classList.add("hidden");
+        dieElem.textContent = "—";
       }
 
       // abre escolha do d6 (no resultado)
@@ -395,11 +394,13 @@ function showD6Choice(){
   }
 
   d6ChoiceHint.textContent = `d6(${state.d6}) — escolha uma opção:`;
+
   // Mostra o efeito completo de cada opção antes da escolha
   const aDesc = (o.a || "").replace(/^.*?:\s*/, "");
   const bDesc = (o.b || "").replace(/^.*?:\s*/, "");
   optA.innerHTML = `<div class="choiceTitle">${o.pair[0]}</div><div class="choiceDesc">${aDesc}</div>`;
   optB.innerHTML = `<div class="choiceTitle">${o.pair[1]}</div><div class="choiceDesc">${bDesc}</div>`;
+
   optA.classList.remove("selected");
   optB.classList.remove("selected");
   optA.disabled = false;
@@ -415,8 +416,8 @@ function updatePreChoiceInfo(){
   const methodIdx = chosenMethodIndex();
   preLines.innerHTML = `
     <div><strong>Carta:</strong> ${state.usedCard ? state.usedCard.label : "—"}</div>
-    <div><strong>d8:</strong> ${d8Text(methodIdx)}${state.methodOverride ? " (reinterpretado)" : ""}</div>
-    <div><strong>d10:</strong> ${d10Name(state.d10)}</div>
+    <div><strong>Método:</strong> ${d8Text(methodIdx)}${state.methodOverride ? " (reinterpretado)" : ""}</div>
+    <div><strong>Momento:</strong> ${d10Name(state.d10)}</div>
     <div><strong>Elemento:</strong> ${methodIdx === 1 ? elemText(state.elem) : "—"}</div>
   `;
 }
@@ -439,6 +440,7 @@ function applyD6Pick(pick){
 
   state.d6Pick = pick;
   state.d6ChoiceName = getD6ChoiceName(state.d6, pick);
+
   // destaque visual do que foi escolhido
   optA.classList.toggle("selected", pick === "A");
   optB.classList.toggle("selected", pick === "B");
@@ -448,8 +450,22 @@ function applyD6Pick(pick){
     adaptWrap.classList.remove("hidden");
     setAdaptSelect();
   } else {
+    // se sair de Adaptação, volta pro método original e ajusta o elemento conforme o método final
     state.methodOverride = null;
     adaptWrap.classList.add("hidden");
+
+    if(state.d8 !== 1){
+      state.elem = null;
+      dieElemBox.classList.add("hidden");
+      dieElem.textContent = "—";
+    } else {
+      dieElemBox.classList.remove("hidden");
+      // elem já existe do roll, mas garante caso algo tenha limpado
+      if(!state.elem){
+        state.elem = randInt(1,6);
+        setDie(dieElem, state.elem);
+      }
+    }
   }
 
   updatePreChoiceInfo();
@@ -470,10 +486,13 @@ function onAdaptChange(){
       state.elem = randInt(1,6);
       dieElemBox.classList.remove("hidden");
       setDie(dieElem, state.elem);
+    } else {
+      dieElemBox.classList.remove("hidden");
     }
   } else {
     state.elem = null;
     dieElemBox.classList.add("hidden");
+    dieElem.textContent = "—";
   }
 
   updatePreChoiceInfo();
@@ -542,7 +561,7 @@ function updateFinalResult(){
   comboLine.textContent = combo;
   comboSub.textContent = `Método: ${methodLabel}${elemLabel ? ` (${elemLabel})` : ""} | Escolha: ${d6Desc} | Momento: ${D10_MOMENTS[state.d10-1].desc}`;
 
-  // Gera texto da magia
+  // Gera texto da magia (formato D&D, sem mencionar dados)
   const spell = Magia.generate({
     cardKey: state.usedCard.key,
     methodIndex: methodIdx,
@@ -554,7 +573,7 @@ function updateFinalResult(){
   spellSummary.textContent = spell.summary;
   spellText.textContent = spell.text;
 
-  // Recuperação compra 1 carta (respeitando limite 7)
+  // Recuperação compra 1 carta (respeitando limite 7) — sem adicionar texto na magia
   if(state.d6 === 6 && state.d6Pick === "B"){
     if(state.hand.length < 7){
       const c = drawCardRandom();
@@ -562,9 +581,6 @@ function updateFinalResult(){
       animateDraw(c);
       renderHand();
       renderSelectedPanel();
-      spellText.textContent += " Recuperação: você compra 1 carta adicional (sem passar de 7).";
-    } else {
-      spellText.textContent += " Recuperação: sua mão já está cheia (7), então não compra carta.";
     }
   }
 }
@@ -596,8 +612,8 @@ function renderTables(){
       <div class="ruleHead">
         <div class="ruleName">${i+1}) ${o.pair[0]} ou ${o.pair[1]}</div>
       </div>
-      <div class="ruleDesc">${o.A}</div>
-      <div class="ruleDesc" style="margin-top:6px">${o.B}</div>
+      <div class="ruleDesc">${o.a}</div>
+      <div class="ruleDesc" style="margin-top:6px">${o.b}</div>
     `;
     tableD6.appendChild(box);
   });

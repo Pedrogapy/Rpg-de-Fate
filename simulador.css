@@ -444,6 +444,7 @@ details summary{
   margin-top:10px;
   font-size:14px;
   line-height:1.5;
+  white-space: pre-line;
 }
 
 

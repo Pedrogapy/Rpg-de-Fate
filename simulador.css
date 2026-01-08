@@ -445,3 +445,28 @@ details summary{
   font-size:14px;
   line-height:1.5;
 }
+
+
+/* Escolha do d6: botões com título + descrição */
+.choiceBtn{
+  text-align: left;
+  padding: 14px 16px;
+  min-height: 74px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+.choiceTitle{
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+.choiceDesc{
+  font-size: 12px;
+  opacity: .85;
+  line-height: 1.25;
+}
+.choiceBtn.selected{
+  outline: 2px solid rgba(88,166,255,.65);
+  box-shadow: 0 0 0 6px rgba(88,166,255,.12);
+}

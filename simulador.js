@@ -388,13 +388,20 @@ function showD6Choice(){
   const o = getD6Obj(state.d6);
   if(!o){
     d6ChoiceHint.textContent = "d6 inválido.";
+    optA.innerHTML = "—";
+    optB.innerHTML = "—";
     optA.disabled = true; optB.disabled = true;
     return;
   }
 
   d6ChoiceHint.textContent = `d6(${state.d6}) — escolha uma opção:`;
-  optA.textContent = o.pair[0];
-  optB.textContent = o.pair[1];
+  // Mostra o efeito completo de cada opção antes da escolha
+  const aDesc = (o.a || "").replace(/^.*?:\s*/, "");
+  const bDesc = (o.b || "").replace(/^.*?:\s*/, "");
+  optA.innerHTML = `<div class="choiceTitle">${o.pair[0]}</div><div class="choiceDesc">${aDesc}</div>`;
+  optB.innerHTML = `<div class="choiceTitle">${o.pair[1]}</div><div class="choiceDesc">${bDesc}</div>`;
+  optA.classList.remove("selected");
+  optB.classList.remove("selected");
   optA.disabled = false;
   optB.disabled = false;
 }
@@ -432,6 +439,9 @@ function applyD6Pick(pick){
 
   state.d6Pick = pick;
   state.d6ChoiceName = getD6ChoiceName(state.d6, pick);
+  // destaque visual do que foi escolhido
+  optA.classList.toggle("selected", pick === "A");
+  optB.classList.toggle("selected", pick === "B");
 
   // Adaptação (d6=5, opção A)
   if(state.d6 === 5 && pick === "A"){

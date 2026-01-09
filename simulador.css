@@ -590,18 +590,3 @@ details summary{
   font-size:12px;
   line-height:1.25;
 }
-/* sebastian.css */
-.modeSelect{
-  padding:8px 10px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,14);
-  background: rgba(0,0,0,18);
-  color:#eaf2ff;
-  outline:none;
-  min-width: 160px;
-}
-
-.modeSelect:focus{
-  border-color: rgba(160, 220, 255, .55);
-  box-shadow: 0 0 0 2px rgba(160, 220, 255, .14);
-}

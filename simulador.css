@@ -444,6 +444,13 @@ details summary{
   margin-top:10px;
   font-size:14px;
   line-height:1.5;
+
+  /* FIX: <pre> não quebra linha por padrão, então ele estoura o layout */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+
+  max-width: 100%;
 }
 
 
@@ -583,3 +590,5 @@ details summary{
   font-size:12px;
   line-height:1.25;
 }
+/* FIX extra: garante que flex/grid não estoure por texto interno */
+.spellBox{ min-width: 0; }

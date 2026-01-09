@@ -240,3 +240,47 @@
   font-weight:950;
   font-size:18px;
 }
+/* ===== Fix overflow do texto no box do Adão ===== */
+
+/* 1) Se a coluna do "Resultado" estiver dentro de um flex/grid,
+      isso permite que o conteúdo QUEBRE ao invés de estourar. */
+.resultLayout > * ,
+.resultRow > * ,
+.panelRow > * ,
+.cardRow > * {
+  min-width: 0;
+}
+
+/* 2) Qualquer bloco de texto grande dentro do resultado deve quebrar linha */
+.resultBox,
+.resultBox * {
+  max-width: 100%;
+}
+
+/* 3) PRE é o maior culpado: por padrão ele NÃO quebra linha */
+.resultBox pre,
+.resultBox .spellText,
+.resultBox .resultText,
+.resultBox .mono {
+  white-space: pre-wrap;     /* mantém quebras, mas quebra linha longa */
+  overflow-wrap: anywhere;   /* quebra até em palavra/trecho grande */
+  word-break: break-word;    /* fallback */
+}
+
+/* 4) Se tiver algum trecho com código/linha grande em <code> */
+.resultBox code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 5) Se você preferir que, em vez de quebrar, role com scroll horizontal:
+   (deixe comentado, só descomente se quiser esse comportamento) */
+/*
+.resultBox pre,
+.resultBox .spellText,
+.resultBox .resultText,
+.resultBox .mono {
+  white-space: pre;
+  overflow-x: auto;
+}
+*/

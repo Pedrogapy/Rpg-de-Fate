@@ -1,230 +1,41 @@
-<!-- simulador.html (Sebastian) -->
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Sebastian — Cartas e Ações</title>
-
-  <!-- Reusa o tema do simulador + layout do Adão -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simulador — Sebastian</title>
   <link rel="stylesheet" href="simulador.css" />
-  <link rel="stylesheet" href="adao.css" />
-  <link rel="stylesheet" href="sebastian.css" />
+  <script defer src="simulador.js"></script>
 </head>
-
 <body>
-  <header class="top">
-    <div class="wrap">
-      <div class="brand">
-        <div class="logo">F</div>
-        <div>
-          <h1>Sebastian — Cartas e Ações</h1>
-          <p>Volumen Hydrargyrum • técnicas por sequência de cartas (até 3) • modo Volumen / Taumaturgia</p>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <a href="index.html">Voltar</a>
-        <a href="adao.html">Adão</a>
-        <a href="#cartas">Cartas</a>
-        <a href="#acoes">Ações</a>
-        <a href="#resultado">Resultado</a>
-      </nav>
-    </div>
+  <header>
+    <h1>🜏 Sebastian — Cartas & Técnicas</h1>
+    <p>Taumaturgia (Pressão + Runas) e Volumen Hydrargyrum</p>
   </header>
 
-  <main class="wrap">
-    <section class="cardSection">
-      <div class="grid2">
-        <div class="panel">
-          <h3>Referências visuais</h3>
-
-          <div class="adaoRefGrid">
-            <div class="refCard">
-              <div class="refTitle">Sebastian</div>
-              <img class="refImg" src="assets/sebastian_ref.png" alt="Sebastian (referência)" />
-              <div class="muted refHint">Coloque sua imagem em <code>assets/sebastian_ref.png</code></div>
-            </div>
-
-            <div class="refCard">
-              <div class="refTitle">Volumen Hydrargyrum</div>
-              <img class="refImg" src="assets/volumen_ref.png" alt="Volumen (referência)" />
-              <div class="muted refHint">Coloque sua imagem em <code>assets/volumen_ref.png</code></div>
-            </div>
-          </div>
-
-          <div class="hint">
-            Esta página organiza cartas, sequência e descreve técnicas. Ela não decide acerto/falha.
-          </div>
-        </div>
-
-        <div class="panel">
-          <h3>Regras rápidas</h3>
-
-          <div class="ruleBox">
-            <div class="ruleHead"><div class="ruleName">Buster</div></div>
-            <div class="ruleDesc">Foca 1 alvo. Técnicas que terminam em Buster rolam <strong>1d10</strong> por carta Buster no combo (máx. 3).</div>
-          </div>
-
-          <div class="ruleBox" style="margin-top:10px">
-            <div class="ruleHead"><div class="ruleName">Quick</div></div>
-            <div class="ruleDesc">Afeta vários alvos. Técnicas que terminam em Quick rolam <strong>1d6</strong> por carta Quick <strong>em cada alvo</strong> atingido.</div>
-          </div>
-
-          <div class="ruleBox" style="margin-top:10px">
-            <div class="ruleHead"><div class="ruleName">Arts</div></div>
-            <div class="ruleDesc">Efeito (controle/utilidade) ou ataque leve. Quando a técnica termina em Arts e for ofensiva, rola <strong>1d8</strong> por carta Arts no combo.</div>
-          </div>
-
-          <div class="ruleBox" style="margin-top:10px">
-            <div class="ruleHead"><div class="ruleName">Escudo</div></div>
-            <div class="ruleDesc">Qualquer escudo absorve <strong>1d12</strong> de dano (rolado quando você escolher uma técnica de defesa).</div>
-          </div>
-        </div>
+  <main>
+    <section class="deck">
+      <h2>Deck</h2>
+      <p>Monte sequências de até 3 cartas e libere técnicas.</p>
+      <div class="deck-buttons">
+        <button id="novoTurno">Novo turno</button>
+        <button id="comprar1">Comprar 1</button>
+        <label>Limite: <input id="limite" type="number" value="7" min="3" max="12" /></label>
+        <button id="reset">Reset</button>
       </div>
+      <div id="mao" class="mao"></div>
     </section>
 
-    <section id="cartas" class="diceSection">
-      <h2>1) Cartas (mão e sequência)</h2>
-
-      <div class="panel">
-        <div class="adaoTopControls">
-          <label class="toggle">
-            <input id="soundToggle" type="checkbox" checked />
-            <span>Som</span>
-          </label>
-
-          <div class="limitBox">
-            <div class="limitLabel">Limite de cartas na mão</div>
-            <div class="limitRow">
-              <input id="handLimit" class="limitInput" type="number" min="1" max="12" step="1" value="7" />
-              <div class="muted">Padrão: 7</div>
-            </div>
-          </div>
-
-          <div class="limitBox">
-            <div class="limitLabel">Modo</div>
-            <div class="limitRow">
-              <select id="modeSelect" class="modeSelect">
-                <option value="volumen" selected>Volumen</option>
-                <option value="taumaturgia">Taumaturgia</option>
-              </select>
-              <div class="muted">Taumaturgia: genérico</div>
-            </div>
-          </div>
-
-          <div style="display:flex; gap:10px; flex-wrap:wrap">
-            <button id="fillHandBtn" class="btn primary">Encher mão</button>
-            <button id="drawOneBtn" class="btn">Comprar 1</button>
-            <button id="resetBtn" class="btn">Reset</button>
-          </div>
-        </div>
-
-        <div class="grid2" style="margin-top:14px">
-          <div class="panel softPanel">
-            <div class="deckArea" style="padding:0">
-              <div id="deck" class="deck" aria-label="Baralho">
-                <div class="cardBack"></div>
-                <div class="cardBack"></div>
-                <div class="cardBack"></div>
-
-                <div id="flyingCard" class="flyingCard" aria-hidden="true">
-                  <div class="cardFace">
-                    <div class="cardTitle">Carta</div>
-                    <div class="cardType">???</div>
-                    <div class="cardMark">FATE</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="hint" style="margin-top:10px">
-                Clique em uma carta da mão para colocar na sequência (até 3). Clique no slot para devolver.
-              </div>
-            </div>
-          </div>
-
-          <div class="panel softPanel">
-            <div class="handHeader">
-              <div>
-                <h3 style="margin:0">Mão</h3>
-                <div class="muted">Cartas na mão: <strong id="handCount">0</strong></div>
-              </div>
-
-              <div class="muted">Seleção: até 3 cartas</div>
-            </div>
-
-            <div id="handGrid" class="handGrid" aria-label="Mão de cartas"></div>
-
-            <div class="seqWrap">
-              <div class="seqTitle">Sequência (início + reforços)</div>
-              <div id="seqSlots" class="seqSlots" aria-label="Sequência"></div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <section class="sequencia">
+      <h2>Sequência</h2>
+      <div id="slots" class="slots"></div>
+      <button id="limparSeq">Limpar sequência</button>
     </section>
 
-    <section id="acoes" class="diceSection">
-      <h2>2) Ações do Sebastian (dependem da sequência)</h2>
-      <p class="muted">
-        No modo Volumen, você tem técnicas nomeadas. No modo Taumaturgia, você recebe uma técnica genérica coerente.
-      </p>
-
-      <div class="panel">
-        <div class="grid2 resultLayout">
-          <div class="panel softPanel">
-            <h3 style="margin-top:0">Ações disponíveis</h3>
-            <div id="actionsHint" class="muted">Monte uma sequência para ver ações compatíveis.</div>
-            <div id="actionsList" class="actionsList" aria-label="Lista de ações"></div>
-          </div>
-
-          <div id="resultado" class="panel softPanel">
-            <h3 style="margin-top:0">Resultado</h3>
-
-            <div class="spellBox resultBox">
-              <div class="spellHead">
-                <div id="resultTitle" class="spellTitle">—</div>
-                <div id="resultTags" class="spellTags muted">—</div>
-              </div>
-
-              <pre id="resultText" class="spellText">Monte uma sequência e selecione uma ação.</pre>
-
-              <div class="damageRow">
-                <div class="damageControls">
-                  <label class="muted">Alvos (Quick):</label>
-                  <input id="targetsCount" class="limitInput" type="number" min="1" max="12" step="1" value="3" />
-
-                  <label class="muted">Arts:</label>
-                  <select id="artsMode" class="modeSelect">
-                    <option value="effect" selected>Efeito</option>
-                    <option value="damage">Dano (1d8)</option>
-                  </select>
-
-                  <button id="rollDamageBtn" class="btn primary" disabled>Rolar</button>
-                  <button id="executeBtn" class="btn" disabled>Executar (consome sequência)</button>
-                </div>
-
-                <div class="damageOut">
-                  <div class="muted">Resultado:</div>
-                  <div id="damageOut" class="damageValue">—</div>
-                </div>
-              </div>
-
-              <div class="hint" style="margin-top:10px">
-                “Executar” só consome as cartas que já estão na sequência.
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
+    <section class="tecnicas">
+      <h2>Técnicas</h2>
+      <div id="listaTecnicas"></div>
     </section>
-
-    <footer class="footer muted">
-      Fate RPG — Página do Sebastian (cartas e ações)
-    </footer>
   </main>
-
-  <script src="simulador.js"></script>
 </body>
 </html>

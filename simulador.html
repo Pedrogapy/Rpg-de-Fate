@@ -1,57 +1,228 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <title>Simulador — Cartas & Dados</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RPG Fate — Simulador</title>
   <link rel="stylesheet" href="simulador.css" />
+  <link rel="icon" href="assets/favicon.png" />
 </head>
 <body>
-
-<header class="header">
-  <h1>Simulador — Cartas & Dados</h1>
-  <p>Compra cartas, monta combo (até 3), rola dados e gera a descrição da magia.</p>
-</header>
-
-<main class="wrap">
-
-  <!-- TOPO NO ESTILO DO ADÃO -->
-  <section class="panel softPanel">
-    <div class="adaoTopControls">
-      <div class="btnRow">
-        <button id="fillHandBtn" class="btn primary">Encher mão</button>
-        <button id="drawOneBtn" class="btn">Comprar 1</button>
-        <button id="resetBtn" class="btn">Reset</button>
-      </div>
-
-      <label class="toggle">
-        <input id="soundToggle" type="checkbox" checked />
-        <span>Som</span>
-      </label>
-
-      <div class="limitBox">
-        <div class="limitLabel">Limite de cartas na mão</div>
-        <div class="limitRow">
-          <input id="handLimit" class="limitInput" type="number" min="1" max="12" value="7" />
-        </div>
+  <header class="top">
+    <div class="brand">
+      <div class="logoDot"></div>
+      <div>
+        <div class="title">Simulador — Cartas & Dados</div>
+        <div class="subtitle">Compra cartas, monta combo (até 3), rola dados e gera a descrição da magia.</div>
       </div>
     </div>
-  </section>
 
-  <!-- CONTEÚDO DO SIMULADOR -->
-  <section class="panel">
-    <h2>Mão do personagem</h2>
-    <div id="handGrid" class="handGrid"></div>
-  </section>
+    <div class="topActions">
+  <label class="toggle">
+    <input type="checkbox" id="soundToggle" checked>
+    <span>Som</span>
+  </label>
 
-  <section class="panel">
-    <h2>Resultado</h2>
-    <div id="spellSummary" class="spellTitle">—</div>
-    <pre id="spellText" class="spellBox">A descrição da magia aparecerá aqui.</pre>
-  </section>
+  <div class="miniControl miniControl--compact">
+    <label for="handLimit">Limite na mão</label>
+    <input id="handLimit" class="limitInput" type="number" value="7" min="1" max="15" />
+  </div>
 
-</main>
+  <div class="btnRow">
+    <button class="btn" id="fillHandBtn">Encher mão</button>
+    <button class="btn secondary" id="drawOneBtn">Comprar 1</button>
+    <button class="btn ghost" id="resetBtn">Reset</button>
+  </div>
+</div>
 
-<script src="magia.js"></script>
-<script src="simulador.js"></script>
+  </header>
+
+  <main class="wrap">
+    <section class="panel">
+      <div class="panelHead">
+        <h2>Mão do personagem</h2>
+        <div class="hint">Clique numa carta para ver detalhes. Monte um combo de 1 a 3 cartas e confirme.</div>
+      </div>
+
+      <div class="handBar">
+        <div class="handInfo">
+          <div class="handCount"><span id="handCount">0</span> cartas</div>
+          <div class="handNote">Limite atual: <strong id="handLimitLabel">7</strong></div>
+        </div>
+
+        <div class="deckArea">
+          <div id="deck" class="deck">
+            <div class="deckTop"></div>
+            <div class="deckMid"></div>
+            <div class="deckBot"></div>
+          </div>
+
+          <div id="flyingCard" class="flyingCard">
+            <div class="cardFace">
+              <div class="cardType">—</div>
+              <div class="cardGlimmer"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="handGrid" class="handGrid"></div>
+
+      <div class="split">
+        <div class="selected">
+          <h3>Carta selecionada</h3>
+          <div class="selName" id="selectedName">—</div>
+          <div class="selDesc" id="selectedDesc">Selecione uma carta na mão para ver a descrição.</div>
+          <div class="selBtns">
+            <button id="addToComboBtn" class="btn primary" disabled>Adicionar ao combo</button>
+            <button id="removeFromComboBtn" class="btn" disabled>Remover do combo</button>
+          </div>
+        </div>
+
+        <div class="combo">
+          <h3>Combo (até 3 cartas)</h3>
+          <div class="comboHint">Ordem importa. Clique numa carta do combo para remover. Use as setas para reorganizar.</div>
+
+          <div id="comboSlots" class="comboSlots"></div>
+
+          <div class="comboActions">
+            <label class="miniControl">
+              <span>Modo de execução</span>
+              <select id="modeSelect">
+                <option value="magia">Taumaturgia</option>
+                <option value="volumen">Volumen (familiar)</option>
+              </select>
+            </label>
+
+            <button id="confirmComboBtn" class="btn primary" disabled>Confirmar combo</button>
+            <button id="clearComboBtn" class="btn" disabled>Limpar combo</button>
+          </div>
+
+          <div class="comboUsed">
+            <div class="comboUsedLine" id="comboUsedLine">Combo usado: —</div>
+            <div class="comboUsedSub" id="comboUsedSub">Selecione cartas e confirme para liberar os dados.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panelHead">
+        <h2>Dados</h2>
+        <div class="hint">Você pode girar os dados separados ou tudo de uma vez. A escolha do efeito do d6 só aparece quando todos estiverem definidos.</div>
+      </div>
+
+      <div class="diceRow">
+        <div class="diceBox">
+          <div class="dieLabel">d6</div>
+          <div id="die6" class="die">—</div>
+          <button id="rollD6Btn" class="btn" disabled>Girar d6</button>
+        </div>
+
+        <div class="diceBox">
+          <div class="dieLabel">d8</div>
+          <div id="die8" class="die">—</div>
+          <button id="rollD8Btn" class="btn" disabled>Girar d8</button>
+        </div>
+
+        <div class="diceBox">
+          <div class="dieLabel">d10</div>
+          <div id="die10" class="die">—</div>
+          <button id="rollD10Btn" class="btn" disabled>Girar d10</button>
+        </div>
+
+        <div id="dieElemBox" class="diceBox hidden">
+          <div class="dieLabel">Elemento</div>
+          <div id="dieElem" class="die">—</div>
+          <div class="dieSub">(aparece quando o método for Elemental)</div>
+        </div>
+      </div>
+
+      <div class="diceActions">
+        <button id="rollAllBtn" class="btn primary" disabled>Girar todos</button>
+      </div>
+
+      <div class="comboLine" id="comboLine">Escolha cartas, confirme o combo e role os dados.</div>
+      <div class="comboSub" id="comboSub"></div>
+
+      <div id="d6Choice" class="d6Choice hidden">
+        <div class="d6Head">
+          <div class="d6Title">Escolha do d6</div>
+          <div id="d6ChoiceHint" class="d6Hint">—</div>
+        </div>
+
+        <div id="preLines" class="preLines"></div>
+
+        <div class="choices">
+          <button id="optA" class="choiceBtn"></button>
+          <button id="optB" class="choiceBtn"></button>
+        </div>
+
+        <div id="adaptWrap" class="adaptWrap hidden">
+          <div class="adaptTitle">Adaptação</div>
+          <div class="adaptHint">Escolha um método coerente para reinterpretar o princípio da magia.</div>
+          <select id="adaptMethod" class="select"></select>
+        </div>
+      </div>
+
+      <div class="outGrid">
+        <div class="out">
+          <div class="outKey">Cartas</div>
+          <div id="outCard" class="outVal">—</div>
+        </div>
+        <div class="out">
+          <div class="outKey">Método</div>
+          <div id="outD8" class="outVal">—</div>
+        </div>
+        <div class="out">
+          <div class="outKey">Escolha</div>
+          <div id="outD6" class="outVal">—</div>
+        </div>
+        <div class="out">
+          <div class="outKey">Momento</div>
+          <div id="outD10" class="outVal">—</div>
+        </div>
+        <div class="out">
+          <div class="outKey">Elemento</div>
+          <div id="outElem" class="outVal">—</div>
+        </div>
+      </div>
+
+      <div class="spell">
+        <div class="spellHead">
+          <div class="spellTitle">Magia gerada</div>
+          <div id="spellSummary" class="spellSummary">—</div>
+        </div>
+        <pre id="spellText" class="spellText">A descrição aparece depois que você escolher a opção do d6.</pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panelHead">
+        <h2>Tabelas</h2>
+        <div class="hint">Referência rápida do método (d8), escolhas (d6) e momentos (d10).</div>
+      </div>
+
+      <div class="tables">
+        <div>
+          <h3>d8 — Método</h3>
+          <ol id="tableD8" class="tableList"></ol>
+        </div>
+
+        <div>
+          <h3>d6 — Escolhas</h3>
+          <div id="tableD6" class="ruleGrid"></div>
+        </div>
+
+        <div>
+          <h3>d10 — Momento</h3>
+          <ol id="tableD10" class="tableList"></ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="magia.js"></script>
+  <script src="simulador.js"></script>
 </body>
 </html>

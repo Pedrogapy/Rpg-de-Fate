@@ -590,5 +590,3 @@ details summary{
   font-size:12px;
   line-height:1.25;
 }
-/* FIX extra: garante que flex/grid não estoure por texto interno */
-.spellBox{ min-width: 0; }

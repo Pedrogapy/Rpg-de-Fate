@@ -1,749 +1,929 @@
-// simulador.js
-// Fluxo: comprar cartas (mão até LIMITE) -> escolher carta usada -> rolar d6/d8/d10 (+d6 elemento se d8=1)
-// -> escolher opção do d6 no resultado -> gerar descrição.
-// Efeito real implementado:
-// - COMBO (d10): arma um bônus para o próximo turno. Se a próxima carta usada for DIFERENTE, a descrição/dano muda.
-// - LIMITE DA MÃO: controlado por input #handLimit (padrão 7), ajustável.
+// simulador.js (Sebastian) — sistema estilo Adão, sem d6/d8/d10
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
 
-function $(id){ return document.getElementById(id); }
+  // ============================
+  // Cartas
+  // ============================
 
-// ============================
-// Config
-// ============================
+  const CARDS = [
+    { key:"quick",  label:"Quick",  css:"quick",  icon:"assets/card_quick.svg",  desc:"Quick: vários alvos (zona/área)." },
+    { key:"arts",   label:"Arts",   css:"arts",   icon:"assets/card_arts.svg",   desc:"Arts: efeito (ou ataque leve) e controle." },
+    { key:"buster", label:"Buster", css:"buster", icon:"assets/card_buster.svg", desc:"Buster: foco em 1 alvo, impacto direto." },
+  ];
 
-const CARD_TYPES = [
-  { key:"quick",  label:"Quick",  css:"quick",  icon:"assets/card_quick.svg",  desc:"Quick foca em vários alvos (magia em área)." },
-  { key:"arts",   label:"Arts",   css:"arts",   icon:"assets/card_arts.svg",   desc:"Arts causa um efeito em um alvo." },
-  { key:"buster", label:"Buster", css:"buster", icon:"assets/card_buster.svg", desc:"Buster foca em um inimigo (um alvo)." },
-];
+  function cardByKey(k){ return CARDS.find(c=>c.key===k) || CARDS[0]; }
 
-const D8_METHODS  = Magia.D8;
-const D6_CHOICES  = Magia.D6;
-const D10_MOMENTS = Magia.D10;
-const ELEMENTS    = Magia.ELEMENTS;
+  // ============================
+  // Ações — MODO VOLUMEN (primeiro)
+  // ============================
 
-// ============================
-// Estado
-// ============================
+  const VOLUMEN_ACTIONS = [
+    // 1 carta
+    {
+      id:"estocada_mercurial",
+      name:"Estocada Mercurial",
+      kind:"Ataque",
+      req:["buster"],
+      tags:"Alvo único • perfuração",
+      damageMode:"buster",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: à vista",
+        "Alvos: 1 criatura",
+        "",
+        "Efeito:",
+        "O Volumen afina em uma lança líquida e dispara num estalo prateado, buscando brecha na guarda.",
+        "É um golpe direto, feito para terminar a troca sem enrolação.",
+        "",
+        "Dano:",
+        `${ctx.busterCount}d10 (impacto perfurante).`,
+      ].join("\n")
+    },
+    {
+      id:"chuva_agulhas",
+      name:"Chuva de Agulhas",
+      kind:"Ataque",
+      req:["quick"],
+      tags:"Vários alvos • rajada",
+      damageMode:"quick",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: zona escolhida à vista",
+        "Alvos: múltiplas criaturas na área",
+        "",
+        "Efeito:",
+        "O Volumen se divide em microagulhas e varre a zona como granizo metálico.",
+        "Quem estiver exposto precisa recuar, se cobrir ou pagar o preço.",
+        "",
+        "Dano:",
+        `${ctx.quickCount}d6 em cada alvo atingido.`,
+      ].join("\n")
+    },
+    {
+      id:"sonda_prata",
+      name:"Sonda de Prata",
+      kind:"Detecção",
+      req:["arts"],
+      tags:"Efeito • rastreio/diagnóstico",
+      damageMode:"none",
+      text: () => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: à vista",
+        "Alvos: 1 criatura, objeto ou área pequena",
+        "",
+        "Efeito:",
+        "O Volumen vira fios finíssimos e “tateia” o ambiente: vibração, calor, pulsos e irregularidades.",
+        "Isso revela presença, direção aproximada, pontos frágeis e sinais de armadilha/ocultação, se fizer sentido na cena.",
+        "",
+        "Observação:",
+        "Não é dano. É informação e vantagem tática.",
+      ].join("\n")
+    },
 
-const state = {
-  hand: [],
-  selectedHandIndex: null,
-  usedCard: null,
+    // 2 cartas (duplica/combina)
+    {
+      id:"martelo_liga",
+      name:"Martelo de Liga",
+      kind:"Ataque",
+      req:["buster","buster"],
+      tags:"Alvo único • pressão bruta",
+      damageMode:"buster",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: à vista",
+        "Alvos: 1 criatura",
+        "",
+        "Efeito:",
+        "O Volumen engrossa e ganha massa no último instante, transformando a estocada em um impacto esmagador.",
+        "Ideal para quebrar ritmo, empurrar e abrir espaço na força.",
+        "",
+        "Dano:",
+        `${ctx.busterCount}d10 (impacto pesado).`,
+      ].join("\n")
+    },
+    {
+      id:"redemoinho_lascas",
+      name:"Redemoinho de Lascas",
+      kind:"Ataque",
+      req:["quick","quick"],
+      tags:"Vários alvos • zona perigosa",
+      damageMode:"quick",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: zona escolhida à vista",
+        "Alvos: múltiplas criaturas na área",
+        "",
+        "Efeito:",
+        "O Volumen mantém a área ocupada em rotação contínua, como um moedor prateado.",
+        "Mesmo quem tenta atravessar “com coragem” acaba sendo forçado a desistir ou tomar cortes.",
+        "",
+        "Dano:",
+        `${ctx.quickCount}d6 em cada alvo atingido.`,
+      ].join("\n")
+    },
+    {
+      id:"escudo_hidragirum",
+      name:"Escudo de Hydrargyrum",
+      kind:"Defesa",
+      req:["arts","arts"],
+      tags:"Defesa • barreira",
+      damageMode:"shield",
+      text: () => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: pessoal ou à vista (alvo próximo, se fizer sentido)",
+        "Alvos: você (ou alguém que você esteja protegendo)",
+        "",
+        "Efeito:",
+        "O Volumen abre em placas e camadas sobrepostas, formando um escudo maleável que acompanha o movimento.",
+        "Ele absorve impacto e “desvia” a força, reduzindo dano de forma clara.",
+        "",
+        "Absorção:",
+        "1d12 (escudo).",
+      ].join("\n")
+    },
+    {
+      id:"travamento_condutivo",
+      name:"Travamento Condutivo",
+      kind:"Ataque + Controle",
+      req:["arts","buster"],
+      tags:"Alvo único • trava/abertura",
+      damageMode:"buster",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: à vista",
+        "Alvos: 1 criatura",
+        "",
+        "Efeito:",
+        "Fios prateados grudam como uma malha rápida e puxam microajustes na postura do alvo.",
+        "No mesmo instante, o golpe entra no ponto que a guarda não cobre direito.",
+        "",
+        "Dano:",
+        `${ctx.busterCount}d10 (impacto + brecha criada).`,
+        "",
+        "Extra:",
+        "O alvo fica com a movimentação/conjuração atrapalhada por um momento, se for coerente com a cena.",
+      ].join("\n")
+    },
+    {
+      id:"campo_fragmentos",
+      name:"Campo de Fragmentos",
+      kind:"Ataque + Zona",
+      req:["arts","quick"],
+      tags:"Vários alvos • controle de área",
+      damageMode:"quick",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: zona escolhida à vista",
+        "Alvos: múltiplas criaturas na área",
+        "",
+        "Efeito:",
+        "O Volumen espalha partículas que reagem ao movimento. Cada passo “puxa” lâminas pequenas para onde dói.",
+        "Serve para negar avanço e punir agrupamentos.",
+        "",
+        "Dano:",
+        `${ctx.quickCount}d6 em cada alvo atingido.`,
+      ].join("\n")
+    },
+    {
+      id:"perfura_sela",
+      name:"Perfurar e Selar",
+      kind:"Ataque + Marca",
+      req:["buster","arts"],
+      tags:"Alvo único • marca",
+      damageMode:"arts",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: à vista",
+        "Alvos: 1 criatura",
+        "",
+        "Efeito:",
+        "O primeiro impacto força a defesa a ‘ceder’. Em seguida, o Volumen grava um padrão prateado no alvo.",
+        "A marca facilita acerto, rastreio ou aplicação de efeitos em sequência (se o mestre permitir).",
+        "",
+        "Dano:",
+        `${ctx.artsCount}d8 (ataque leve + marca).`,
+      ].join("\n")
+    },
+    {
+      id:"neblina_rastreamento",
+      name:"Neblina de Rastreamento",
+      kind:"Detecção + Zona",
+      req:["quick","arts"],
+      tags:"Vários alvos • revelar/seguir",
+      damageMode:"none",
+      text: () => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: zona escolhida à vista",
+        "Alvos: múltiplas criaturas na área (ou trilhas na área)",
+        "",
+        "Efeito:",
+        "Partículas finas se espalham e reagem a calor, vibração e deslocamento, denunciando posições e rotas.",
+        "Ótimo para caçar invisibilidade ‘barata’, achar cobertura falsa ou marcar quem tenta fugir.",
+      ].join("\n")
+    },
 
-  // limite configurável
-  handLimit: 7,
+    // 3 cartas (pico)
+    {
+      id:"guillotine_hydrargyrum",
+      name:"Guilhotina de Hydrargyrum",
+      kind:"Ataque",
+      req:["buster","buster","buster"],
+      tags:"Alvo único • finalizador",
+      damageMode:"buster",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: à vista",
+        "Alvos: 1 criatura",
+        "",
+        "Efeito:",
+        "O Volumen forma uma lâmina grande e precisa, como uma tesoura de execução: trava, fecha, corta.",
+        "É o tipo de golpe que encerra discussão se o alvo não tiver uma resposta boa.",
+        "",
+        "Dano:",
+        `${ctx.busterCount}d10 (finalizador).`,
+      ].join("\n")
+    },
+    {
+      id:"tempestade_estilhacos",
+      name:"Tempestade de Estilhaços",
+      kind:"Ataque",
+      req:["quick","quick","quick"],
+      tags:"Vários alvos • devastação em área",
+      damageMode:"quick",
+      text: (ctx) => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: zona escolhida à vista",
+        "Alvos: múltiplas criaturas na área",
+        "",
+        "Efeito:",
+        "O Volumen vira uma tempestade de fragmentos que persegue movimento dentro da zona.",
+        "Ideal para limpar campo, separar grupo e forçar escolhas ruins.",
+        "",
+        "Dano:",
+        `${ctx.quickCount}d6 em cada alvo atingido.`,
+      ].join("\n")
+    },
+    {
+      id:"catedral_prata",
+      name:"Catedral de Prata",
+      kind:"Defesa + Controle",
+      req:["arts","arts","arts"],
+      tags:"Fortificação • proteção",
+      damageMode:"shield",
+      text: () => [
+        "Conjuração: 1 ação",
+        "Fonte: Volumen Hydrargyrum",
+        "Alcance: pessoal / zona curta",
+        "Alvos: você e área imediata",
+        "",
+        "Efeito:",
+        "O Volumen se ergue em placas, arcos e travas, criando cobertura e rotas seguras por um instante.",
+        "Serve para segurar pressão, proteger recuo ou garantir uma janela de ação.",
+        "",
+        "Absorção:",
+        "1d12 (escudo).",
+        "",
+        "Extra:",
+        "A área fica “difícil” de atravessar para quem quiser forçar passagem, se for coerente com a cena.",
+      ].join("\n")
+    },
+  ];
 
-  d6: null,
-  d8: null,
-  d10: null,
-  elem: null,
+  // ============================
+  // Estado
+  // ============================
 
-  d6Pick: null,           // "A" ou "B"
-  d6ChoiceName: null,     // nome final
+  const state = {
+    hand: [],
+    seq: [],                // cartas reservadas (objetos carta)
+    selectedActionId: null,
+    handLimit: 7,
+    mode: "volumen",
+  };
 
-  methodOverride: null,   // usado apenas se d6=5 e opção A (Adaptação)
+  // ============================
+  // DOM
+  // ============================
 
-  // --- Combo (d10) real ---
-  comboArmed: false,      // veio do turno anterior
-  comboFromCardKey: null, // carta do turno anterior que gerou o Combo
-  comboApplied: false,    // aplicado neste turno (carta diferente)
-};
+  const deck = $("deck");
+  const flyingCard = $("flyingCard");
 
-// ============================
-// DOM
-// ============================
+  const fillHandBtn = $("fillHandBtn");
+  const drawOneBtn = $("drawOneBtn");
+  const resetBtn = $("resetBtn");
+  const soundToggle = $("soundToggle");
+  const handLimitInput = $("handLimit");
+  const modeSelect = $("modeSelect");
 
-const deck = $("deck");
-const flyingCard = $("flyingCard");
+  const handGrid = $("handGrid");
+  const handCount = $("handCount");
+  const seqSlots = $("seqSlots");
 
-const newTurnBtn = $("newTurnBtn");
-const drawOneBtn = $("drawOneBtn");
-const resetBtn = $("resetBtn");
-const soundToggle = $("soundToggle");
+  const actionsHint = $("actionsHint");
+  const actionsList = $("actionsList");
 
-// novo: limite da mão
-const handLimitInput = $("handLimit");
+  const resultTitle = $("resultTitle");
+  const resultTags = $("resultTags");
+  const resultText = $("resultText");
 
-const handGrid = $("handGrid");
-const handCount = $("handCount");
-const selectedName = $("selectedName");
-const selectedDesc = $("selectedDesc");
-const useCardBtn = $("useCardBtn");
+  const targetsCount = $("targetsCount");
+  const artsMode = $("artsMode");
+  const rollDamageBtn = $("rollDamageBtn");
+  const executeBtn = $("executeBtn");
+  const damageOut = $("damageOut");
 
-const rollBtn = $("rollBtn");
-const die6 = $("die6");
-const die8 = $("die8");
-const die10 = $("die10");
-const dieElemBox = $("dieElemBox");
-const dieElem = $("dieElem");
+  // ============================
+  // Som
+  // ============================
 
-const comboLine = $("comboLine");
-const comboSub = $("comboSub");
-
-const outCard = $("outCard");
-const outD8 = $("outD8");
-const outD6 = $("outD6");
-const outD10 = $("outD10");
-const outElem = $("outElem");
-
-const d6ChoiceWrap = $("d6Choice");
-const preLines = $("preLines");
-const d6ChoiceHint = $("d6ChoiceHint");
-const optA = $("optA");
-const optB = $("optB");
-
-const adaptWrap = $("adaptWrap");
-const adaptMethod = $("adaptMethod");
-
-const spellSummary = $("spellSummary");
-const spellText = $("spellText");
-
-const tableD8 = $("tableD8");
-const tableD6 = $("tableD6");
-const tableD10 = $("tableD10");
-
-// ============================
-// Som simples
-// ============================
-
-function playTone(freq=740, ms=80, type="triangle", gain=0.05){
-  if(!soundToggle || !soundToggle.checked) return;
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = type;
-    o.frequency.value = freq;
-    g.gain.value = gain;
-    o.connect(g); g.connect(ctx.destination);
-    o.start();
-    o.stop(ctx.currentTime + ms/1000);
-    setTimeout(()=>ctx.close(), ms+60);
-  }catch(_){}
-}
-
-function playClick(){ playTone(740, 80, "triangle", 0.05); }
-function playRoll(){
-  if(!soundToggle || !soundToggle.checked) return;
-  try{
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "square";
-    o.frequency.value = 220;
-    g.gain.value = 0.03;
-    o.connect(g); g.connect(ctx.destination);
-    o.start();
-    o.frequency.linearRampToValueAtTime(660, ctx.currentTime + 0.12);
-    o.stop(ctx.currentTime + 0.14);
-    setTimeout(()=>ctx.close(), 210);
-  }catch(_){}
-}
-
-// ============================
-// Util
-// ============================
-
-function randInt(min, max){ return Math.floor(Math.random()*(max-min+1))+min; }
-
-function setDie(el, value){
-  el.classList.add("shake");
-  el.textContent = String(value);
-  setTimeout(()=>el.classList.remove("shake"), 180);
-}
-
-function resetDiceUI(){
-  die6.textContent = "—";
-  die8.textContent = "—";
-  die10.textContent = "—";
-  dieElem.textContent = "—";
-  dieElemBox.classList.add("hidden");
-}
-
-function chosenMethodIndex(){
-  return state.methodOverride ?? state.d8;
-}
-
-function d8Text(idx){
-  return D8_METHODS[idx-1] || "—";
-}
-
-function d10Name(idx){
-  return D10_MOMENTS[idx-1]?.name || "—";
-}
-
-function d10Text(idx){
-  const o = D10_MOMENTS[idx-1];
-  return o ? `${o.name}: ${o.desc}` : "—";
-}
-
-function elemText(idx){
-  return idx ? (ELEMENTS[idx-1] || "—") : "—";
-}
-
-function getD6Obj(d6){
-  return D6_CHOICES[d6-1] || null;
-}
-
-function getD6ChoiceName(d6, pick){
-  const o = getD6Obj(d6);
-  if(!o) return "—";
-  return pick === "A" ? o.pair[0] : o.pair[1];
-}
-
-function getD6ChoiceDesc(d6, pick){
-  const o = getD6Obj(d6);
-  if(!o) return "—";
-  return pick === "A" ? o.a : o.b;
-}
-
-function clampHandLimit(n){
-  if(!Number.isFinite(n)) return 7;
-  n = Math.floor(n);
-  if(n < 1) n = 1;
-  if(n > 12) n = 12;
-  return n;
-}
-
-// ============================
-// Cartas
-// ============================
-
-function animateDraw(card){
-  if(!deck || !flyingCard) return;
-
-  deck.classList.remove("isDrawing");
-  void deck.offsetWidth;
-  deck.classList.add("isDrawing");
-
-  const typeEl = flyingCard.querySelector(".cardType");
-  if(typeEl) typeEl.textContent = card.label;
-
-  const face = flyingCard.querySelector(".cardFace");
-  if(face){
-    face.style.borderColor = `rgba(255,255,255,.10)`;
-    face.style.background =
-      `radial-gradient(520px 280px at 12% 18%, rgba(255,255,255,.12), rgba(255,255,255,.03)),` +
-      `linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,.02))`;
+  function playTone(freq=740, ms=80, type="triangle", gain=0.05){
+    if(!soundToggle.checked) return;
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.value = gain;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + ms/1000);
+      setTimeout(()=>ctx.close(), ms+60);
+    }catch(_){}
+  }
+  function playClick(){ playTone(740, 80, "triangle", 0.05); }
+  function playDraw(){ playTone(520, 120, "sine", 0.045); }
+  function playPlace(){ playTone(620, 90, "triangle", 0.05); }
+  function playRoll(){
+    if(!soundToggle.checked) return;
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "square";
+      o.frequency.value = 240;
+      g.gain.value = 0.03;
+      o.connect(g); g.connect(ctx.destination);
+      o.start();
+      o.frequency.linearRampToValueAtTime(720, ctx.currentTime + 0.12);
+      o.stop(ctx.currentTime + 0.14);
+      setTimeout(()=>ctx.close(), 210);
+    }catch(_){}
   }
 
-  flyingCard.classList.remove("quick","arts","buster");
-  flyingCard.classList.add(card.css);
+  // ============================
+  // Util (deck/hand)
+  // ============================
 
-  setTimeout(()=>deck.classList.remove("isDrawing"), 900);
-}
+  function animateDraw(card){
+    deck.classList.remove("isDrawing");
+    void deck.offsetWidth;
+    deck.classList.add("isDrawing");
 
-function drawCardRandom(){
-  return CARD_TYPES[randInt(0, CARD_TYPES.length-1)];
-}
+    const typeEl = flyingCard.querySelector(".cardType");
+    typeEl.textContent = card.label;
 
-function addToHand(card){
-  if(state.hand.length >= state.handLimit) return false;
-  state.hand.push(card);
-  return true;
-}
+    flyingCard.classList.remove("quick","arts","buster");
+    flyingCard.classList.add(card.css);
 
-function updateHandCount(){
-  if(!handCount) return;
-  handCount.textContent = `${state.hand.length}/${state.handLimit}`;
-}
+    setTimeout(()=>deck.classList.remove("isDrawing"), 900);
+  }
 
-function renderHand(){
-  if(!handGrid) return;
+  function drawCardRandom(){
+    return CARDS[randInt(0, CARDS.length-1)];
+  }
 
-  handGrid.innerHTML = "";
-  for(let i=0;i<state.handLimit;i++){
-    const card = state.hand[i] || null;
+  function syncHandCount(){
+    handCount.textContent = String(state.hand.length);
+  }
 
-    const div = document.createElement("div");
-    div.className = "handCard";
+  function setHandLimit(n){
+    const x = Math.max(1, Math.min(12, n|0));
+    state.handLimit = x;
 
-    if(!card){
-      div.classList.add("emptySlot");
-      div.innerHTML = `
-        <div class="handBadge"><span>Vazio</span></div>
-        <div class="handSub">—</div>
-      `;
-      handGrid.appendChild(div);
-      continue;
+    while(state.hand.length > state.handLimit){
+      state.hand.pop();
     }
 
-    div.classList.add(card.css);
-    if(state.selectedHandIndex === i) div.classList.add("selected");
-
-    div.innerHTML = `
-      <div class="handGlow"></div>
-      <div class="handBadge">
-        <img class="handIcon" src="${card.icon}" alt="${card.label}"/>
-        <span>${card.label}</span>
-      </div>
-      <div class="handSub">clique para selecionar</div>
-    `;
-
-    div.addEventListener("click", ()=>{
-      playClick();
-      state.selectedHandIndex = i;
-      renderHand();
-      renderSelectedPanel();
-    });
-
-    handGrid.appendChild(div);
+    handLimitInput.value = String(state.handLimit);
+    renderHand();
+    syncHandCount();
   }
 
-  updateHandCount();
-}
-
-function renderSelectedPanel(){
-  if(!selectedName || !selectedDesc || !useCardBtn) return;
-
-  if(state.selectedHandIndex == null || !state.hand[state.selectedHandIndex]){
-    selectedName.textContent = "—";
-    selectedDesc.textContent = "Selecione uma carta na mão para ver a descrição.";
-    useCardBtn.disabled = true;
-    return;
+  function addToHand(card){
+    if(state.hand.length >= state.handLimit) return false;
+    state.hand.push(card);
+    return true;
   }
 
-  const card = state.hand[state.selectedHandIndex];
-  selectedName.textContent = card.label;
-  selectedDesc.textContent = card.desc;
-  useCardBtn.disabled = false;
-}
+  // ============================
+  // Sequência
+  // ============================
 
-function newTurnFill(){
-  while(state.hand.length < state.handLimit){
-    const c = drawCardRandom();
-    addToHand(c);
-    animateDraw(c);
+  function seqKeys(){
+    return state.seq.map(c => c.key);
   }
-  playClick();
-  renderHand();
-  renderSelectedPanel();
-}
-
-function drawOne(){
-  if(state.hand.length >= state.handLimit) return;
-  const c = drawCardRandom();
-  addToHand(c);
-  animateDraw(c);
-  playClick();
-  renderHand();
-  renderSelectedPanel();
-}
-
-// ============================
-// Usar carta -> habilita rolagem
-// ============================
-
-function useSelectedCard(){
-  if(state.selectedHandIndex == null || !state.hand[state.selectedHandIndex]) return;
-
-  playClick();
-
-  const chosen = state.hand[state.selectedHandIndex];
-
-  // --- aplica Combo armado do turno anterior (se a carta for diferente) ---
-  state.comboApplied = false;
-  if(state.comboArmed && state.comboFromCardKey){
-    if(chosen.key !== state.comboFromCardKey){
-      state.comboApplied = true;
-    }
-    // efeito vale só para o “próximo turno”, então desarma aqui de qualquer jeito
-    state.comboArmed = false;
-    state.comboFromCardKey = null;
+  function countInSeq(key){
+    return state.seq.reduce((acc,c)=>acc+(c.key===key?1:0), 0);
   }
 
-  state.usedCard = chosen;
-  state.hand.splice(state.selectedHandIndex, 1);
-  state.selectedHandIndex = null;
+  function renderSeq(){
+    seqSlots.innerHTML = "";
 
-  // reseta dados e escolhas
-  state.d6 = null; state.d8 = null; state.d10 = null; state.elem = null;
-  state.d6Pick = null; state.d6ChoiceName = null;
-  state.methodOverride = null;
+    for(let i=0;i<3;i++){
+      const slot = document.createElement("div");
+      slot.className = "seqSlot";
+      const card = state.seq[i] || null;
 
-  resetDiceUI();
-  hideD6Choice();
+      if(card){
+        slot.classList.add("filled");
+        slot.innerHTML = `
+          <div class="seqMini">
+            <img class="seqIcon" src="${card.icon}" alt="${card.label}" />
+            <div>
+              <div class="seqName">${card.label}</div>
+              <div class="seqSub">clique para devolver</div>
+            </div>
+          </div>
+        `;
 
-  if(rollBtn) rollBtn.disabled = false;
+        slot.addEventListener("click", ()=>{
+          playClick();
+          // devolver para mão (respeita limite)
+          if(state.hand.length >= state.handLimit){
+            // se a mão estiver cheia, não devolve (mantém simples)
+            resultText.textContent = "A mão está no limite. Aumente o limite ou consuma cartas antes de devolver.";
+            return;
+          }
+          const removed = state.seq.splice(i,1)[0];
+          state.hand.push(removed);
+          state.selectedActionId = null;
+          damageOut.textContent = "—";
+          renderHand();
+          syncHandCount();
+          refreshActionsAndResult();
+        });
 
-  renderHand();
-  renderSelectedPanel();
-  updateOutputsBeforeRoll();
-}
-
-// ============================
-// Rolagem
-// ============================
-
-function rollDice(){
-  if(!state.usedCard) return;
-
-  playRoll();
-
-  const endAt = performance.now() + 900;
-  const tick = () => {
-    die6.textContent  = String(randInt(1,6));
-    die8.textContent  = String(randInt(1,8));
-    die10.textContent = String(randInt(1,10));
-
-    if(performance.now() < endAt){
-      requestAnimationFrame(tick);
-    } else {
-      state.d6  = randInt(1,6);
-      state.d8  = randInt(1,8);
-      state.d10 = randInt(1,10);
-
-      setDie(die6,  state.d6);
-      setDie(die8,  state.d8);
-      setDie(die10, state.d10);
-
-      // elemento se d8=1
-      state.elem = null;
-      if(state.d8 === 1){
-        state.elem = randInt(1,6);
-        dieElemBox.classList.remove("hidden");
-        setDie(dieElem, state.elem);
       } else {
-        dieElemBox.classList.add("hidden");
+        slot.innerHTML = `
+          <div class="muted" style="font-weight:800">Slot ${i+1}</div>
+          <div class="seqSub">vazio</div>
+        `;
       }
 
-      showD6Choice();
-      updatePreChoiceInfo();
-      updateOutputsAfterRollBeforeChoice();
+      seqSlots.appendChild(slot);
     }
-  };
-  tick();
-}
-
-// ============================
-// d6 choice (no resultado)
-// ============================
-
-function showD6Choice(){
-  d6ChoiceWrap.classList.remove("hidden");
-  adaptWrap.classList.add("hidden");
-
-  const o = getD6Obj(state.d6);
-  if(!o){
-    d6ChoiceHint.textContent = "d6 inválido.";
-    optA.innerHTML = "—";
-    optB.innerHTML = "—";
-    optA.disabled = true; optB.disabled = true;
-    return;
   }
 
-  d6ChoiceHint.textContent = `d6(${state.d6}) — escolha uma opção:`;
+  // ============================
+  // Render mão
+  // ============================
 
-  const aDesc = (o.a || "").replace(/^.*?:\s*/, "");
-  const bDesc = (o.b || "").replace(/^.*?:\s*/, "");
+  function renderHand(){
+    handGrid.innerHTML = "";
 
-  optA.innerHTML = `<div class="choiceTitle">${o.pair[0]}</div><div class="choiceDesc">${aDesc}</div>`;
-  optB.innerHTML = `<div class="choiceTitle">${o.pair[1]}</div><div class="choiceDesc">${bDesc}</div>`;
+    state.hand.forEach((card, idx)=>{
+      const div = document.createElement("div");
+      div.className = `handCard ${card.css}`;
+      div.innerHTML = `
+        <div class="handGlow"></div>
+        <div class="handBadge">
+          <img class="handIcon" src="${card.icon}" alt="${card.label}"/>
+          <span>${card.label}</span>
+        </div>
+        <div class="handSub">${card.desc}</div>
+      `;
 
-  optA.classList.remove("selected");
-  optB.classList.remove("selected");
-  optA.disabled = false;
-  optB.disabled = false;
-}
+      div.addEventListener("click", ()=>{
+        playPlace();
+        if(state.seq.length >= 3) return;
 
-function hideD6Choice(){
-  d6ChoiceWrap.classList.add("hidden");
-  adaptWrap.classList.add("hidden");
-}
+        // move carta da mão para seq (mantém ordem de clique)
+        const picked = state.hand.splice(idx,1)[0];
+        state.seq.push(picked);
 
-function updatePreChoiceInfo(){
-  const methodIdx = chosenMethodIndex();
-  preLines.innerHTML = `
-    <div><strong>Carta:</strong> ${state.usedCard ? state.usedCard.label : "—"}</div>
-    <div><strong>d8:</strong> ${d8Text(methodIdx)}${state.methodOverride ? " (reinterpretado)" : ""}</div>
-    <div><strong>d10:</strong> ${d10Name(state.d10)}</div>
-    <div><strong>Elemento:</strong> ${methodIdx === 1 ? elemText(state.elem) : "—"}</div>
-  `;
-}
+        state.selectedActionId = null;
+        damageOut.textContent = "—";
 
-function setAdaptSelect(){
-  adaptMethod.innerHTML = "";
-  for(let i=1;i<=8;i++){
-    const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = `${i}) ${D8_METHODS[i-1]}`;
-    adaptMethod.appendChild(opt);
-  }
-  adaptMethod.value = String(chosenMethodIndex());
-}
+        renderHand();
+        syncHandCount();
+        refreshActionsAndResult();
+      });
 
-function applyD6Pick(pick){
-  if(!state.d6) return;
-
-  playClick();
-
-  state.d6Pick = pick;
-  state.d6ChoiceName = getD6ChoiceName(state.d6, pick);
-
-  optA.classList.toggle("selected", pick === "A");
-  optB.classList.toggle("selected", pick === "B");
-
-  // Adaptação (d6=5, opção A)
-  if(state.d6 === 5 && pick === "A"){
-    adaptWrap.classList.remove("hidden");
-    setAdaptSelect();
-  } else {
-    state.methodOverride = null;
-    adaptWrap.classList.add("hidden");
+      handGrid.appendChild(div);
+    });
   }
 
-  updatePreChoiceInfo();
-  updateFinalResult();
-}
+  // ============================
+  // Ações disponíveis
+  // ============================
 
-function onAdaptChange(){
-  if(!(state.d6 === 5 && state.d6Pick === "A")) return;
+  function getModeActions(){
+    if(state.mode === "volumen") return VOLUMEN_ACTIONS;
+    return []; // Taumaturgia por enquanto fica genérica
+  }
 
-  const newIdx = parseInt(adaptMethod.value, 10);
-  if(!Number.isFinite(newIdx) || newIdx < 1 || newIdx > 8) return;
+  function findMatchedActions(){
+    const s = seqKeys();
+    if(s.length === 0) return [];
+    const actions = getModeActions();
+    return actions.filter(a => a.req.length === s.length && a.req.every((k,i)=>k===s[i]));
+  }
 
-  state.methodOverride = newIdx;
+  function renderActions(){
+    actionsList.innerHTML = "";
+    const s = seqKeys();
 
-  // se reinterpretar para elemental, define elemento
-  if(state.methodOverride === 1){
-    if(!state.elem){
-      state.elem = randInt(1,6);
-      dieElemBox.classList.remove("hidden");
-      setDie(dieElem, state.elem);
+    if(s.length === 0){
+      actionsHint.textContent = "Monte uma sequência para ver ações compatíveis.";
+      return;
     }
-  } else {
-    state.elem = null;
-    dieElemBox.classList.add("hidden");
+
+    if(state.mode === "taumaturgia"){
+      actionsHint.textContent = `Modo Taumaturgia: técnica genérica para ${s.map(k=>cardByKey(k).label).join(" → ")}.`;
+      return;
+    }
+
+    const matched = findMatchedActions();
+    actionsHint.textContent =
+      matched.length
+        ? `Ações compatíveis com: ${s.map(k=>cardByKey(k).label).join(" → ")}`
+        : "Nenhuma ação nomeada bateu. Você ainda ganha uma técnica genérica coerente.";
+
+    for(const a of matched){
+      const div = document.createElement("div");
+      div.className = "actionCard";
+      div.innerHTML = `
+        <div class="actionTop">
+          <div>
+            <div class="actionName">${a.name}</div>
+            <div class="actionMeta">${a.kind} • ${a.tags}</div>
+          </div>
+          <div class="muted">${a.req.map(k=>cardByKey(k).label).join(" → ")}</div>
+        </div>
+        <div class="reqRow">
+          ${a.req.map(k=>{
+            const c = cardByKey(k);
+            return `<span class="reqPill"><img class="seqIcon" src="${c.icon}" alt="${c.label}"/>${c.label}</span>`;
+          }).join("")}
+        </div>
+      `;
+
+      div.addEventListener("click", ()=>{
+        playClick();
+        state.selectedActionId = a.id;
+
+        for(const el of actionsList.querySelectorAll(".actionCard")){
+          el.classList.remove("selected");
+        }
+        div.classList.add("selected");
+
+        damageOut.textContent = "—";
+        renderResult();
+      });
+
+      actionsList.appendChild(div);
+    }
   }
 
-  updatePreChoiceInfo();
-  updateFinalResult();
-}
+  // ============================
+  // Técnica genérica
+  // ============================
 
-// ============================
-// Output
-// ============================
+  function genericTechnique(s){
+    const last = s[s.length-1];
+    const hasArts = s.includes("arts");
+    const hasQuick = s.includes("quick");
+    const hasBuster = s.includes("buster");
 
-function clearOutputs(){
-  comboLine.textContent = "Escolha uma carta e role os dados.";
-  comboSub.textContent = "";
+    const modeName = (state.mode === "volumen") ? "Volumen Hydrargyrum" : "Taumaturgia";
+    const vibe = [];
 
-  outCard.textContent = "—";
-  outD8.textContent = "—";
-  outD6.textContent = "—";
-  outD10.textContent = "—";
-  outElem.textContent = "—";
+    if(state.mode === "volumen"){
+      if(hasArts) vibe.push("O Volumen afina e ajusta forma e função: fios, placas, travas e microestruturas úteis.");
+      if(hasQuick) vibe.push("A matéria se fragmenta e ocupa espaço, punindo movimento e forçando recuo.");
+      if(hasBuster) vibe.push("No fim, tudo condensa em um golpe direto e sem desperdício.");
+    }else{
+      if(hasArts) vibe.push("Você estabiliza um efeito: regra simples, controle e intervenção.");
+      if(hasQuick) vibe.push("Você abre uma zona de pressão, espalhando impacto e empurrando escolhas ruins.");
+      if(hasBuster) vibe.push("Você conclui com um impacto firme, focado e curto.");
+    }
 
-  spellSummary.textContent = "—";
-  spellText.textContent = "A descrição aparece depois que você escolher a opção do d6.";
-}
+    let reach = "à vista";
+    let targets = "conforme a execução";
+    let dmgLine = "Sem dano direto (efeito).";
+    let dmgMode = "none";
 
-function updateOutputsBeforeRoll(){
-  clearOutputs();
-  outCard.textContent = state.usedCard ? `${state.usedCard.label} — ${state.usedCard.desc}` : "—";
+    const bCount = countInSeq("buster");
+    const qCount = countInSeq("quick");
+    const aCount = countInSeq("arts");
 
-  let extra = "";
-  if(state.comboApplied){
-    extra = " (Combo ativado: carta diferente do turno anterior)";
+    if(last === "buster"){
+      targets = "1 criatura";
+      dmgLine = `${bCount}d10 (impacto).`;
+      dmgMode = "buster";
+    }else if(last === "quick"){
+      reach = "zona escolhida à vista";
+      targets = "múltiplas criaturas na área";
+      dmgLine = `${qCount}d6 em cada alvo atingido.`;
+      dmgMode = "quick";
+    }else{
+      targets = hasQuick ? "múltiplas criaturas na área (efeito)" : "1 criatura/objeto/efeito";
+      if(artsMode.value === "damage"){
+        dmgLine = `${aCount}d8 (ataque leve).`;
+        dmgMode = "arts";
+      }else{
+        dmgLine = "Sem dano direto (efeito).";
+        dmgMode = "none";
+      }
+    }
+
+    return {
+      title: `Técnica Encadeada — ${s.map(k=>cardByKey(k).label).join(" → ")}`,
+      tags: `${modeName} • Genérica`,
+      text: [
+        "Conjuração: 1 ação",
+        `Fonte: ${modeName}`,
+        `Alcance: ${reach}`,
+        `Alvos: ${targets}`,
+        "",
+        "Efeito:",
+        ...vibe,
+        "",
+        "Dano/Valor:",
+        dmgLine
+      ].join("\n"),
+      damageMode: dmgMode
+    };
   }
 
-  comboLine.textContent = state.usedCard
-    ? `Carta usada: ${state.usedCard.label}${extra} (agora role os dados)`
-    : "Escolha uma carta e role os dados.";
+  // ============================
+  // Resultado
+  // ============================
 
-  comboSub.textContent = state.usedCard ? "Clique em “Girar dados”." : "";
-}
+  function ctxForText(){
+    return {
+      busterCount: Math.max(1, countInSeq("buster")),
+      quickCount: Math.max(1, countInSeq("quick")),
+      artsCount: Math.max(1, countInSeq("arts")),
+    };
+  }
 
-function updateOutputsAfterRollBeforeChoice(){
-  const methodIdx = chosenMethodIndex();
+  function renderResult(){
+    const s = seqKeys();
 
-  outCard.textContent = `${state.usedCard.label} — ${state.usedCard.desc}`;
-  outD8.textContent = `d8(${state.d8}) — ${d8Text(methodIdx)}`;
-  outD10.textContent = `d10(${state.d10}) — ${d10Text(state.d10)}`;
-  outD6.textContent = `d6(${state.d6}) — escolha pendente`;
-  outElem.textContent = (methodIdx === 1) ? elemText(state.elem) : "—";
+    if(s.length === 0){
+      resultTitle.textContent = "—";
+      resultTags.textContent = "—";
+      resultText.textContent = "Monte uma sequência e selecione uma ação.";
+      rollDamageBtn.disabled = true;
+      executeBtn.disabled = true;
+      damageOut.textContent = "—";
+      rollDamageBtn.textContent = "Rolar";
+      rollDamageBtn.dataset.mode = "none";
+      return;
+    }
 
-  comboLine.textContent = `${state.usedCard.label} + d8(${state.d8}) + d6(${state.d6}) + d10(${state.d10})`;
-  comboSub.textContent = "Escolha a opção do d6 para fechar a magia.";
+    const matched = findMatchedActions();
+    const picked = matched.find(a => a.id === state.selectedActionId) || matched[0] || null;
 
-  spellSummary.textContent = "—";
-  spellText.textContent = "Escolha a opção do d6 para gerar a descrição temática.";
-}
+    if(picked){
+      const ctx = ctxForText();
+      resultTitle.textContent = picked.name;
+      resultTags.textContent =
+        `${state.mode === "volumen" ? "Volumen" : "Taumaturgia"} • ${picked.kind} • ${picked.tags} • Sequência: ${picked.req.map(k=>cardByKey(k).label).join(" → ")}`;
 
-function updateFinalResult(){
-  if(!state.d6Pick) return;
+      resultText.textContent = picked.text(ctx);
 
-  const methodIdx = chosenMethodIndex();
-  const methodLabel = d8Text(methodIdx);
-  const elemLabel = (methodIdx === 1) ? elemText(state.elem) : null;
+      rollDamageBtn.dataset.mode = picked.damageMode;
+      rollDamageBtn.disabled = (picked.damageMode === "none");
+      executeBtn.disabled = false;
 
-  const d6Desc = getD6ChoiceDesc(state.d6, state.d6Pick);
-  const d10N = d10Name(state.d10);
+      rollDamageBtn.textContent =
+        (picked.damageMode === "shield") ? "Rolar escudo" :
+        (picked.damageMode === "none") ? "Rolar" : "Rolar dano";
 
-  outD8.textContent = `d8(${state.d8}) — ${methodLabel}${state.methodOverride ? " (reinterpretado)" : ""}`;
-  outD10.textContent = `d10(${state.d10}) — ${d10Text(state.d10)}`;
-  outD6.textContent = `d6(${state.d6}) — ${state.d6ChoiceName} — ${d6Desc}`;
-  outElem.textContent = elemLabel ? elemLabel : "—";
+      return;
+    }
 
-  let combo = `${state.usedCard.label} + d8(${methodIdx}${state.methodOverride ? "*" : ""}) + d6(${state.d6}:${state.d6ChoiceName}) + d10(${state.d10}:${d10N})`;
-  if(elemLabel) combo += ` + elemento(${elemLabel})`;
+    const gen = genericTechnique(s);
+    resultTitle.textContent = gen.title;
+    resultTags.textContent = `${gen.tags} • Sequência: ${s.map(k=>cardByKey(k).label).join(" → ")}`;
+    resultText.textContent = gen.text;
 
-  comboLine.textContent = combo;
+    rollDamageBtn.dataset.mode = gen.damageMode;
+    rollDamageBtn.disabled = (gen.damageMode === "none");
+    executeBtn.disabled = false;
 
-  const comboTag = state.comboApplied ? " | Combo ativado (carta diferente)" : "";
-  comboSub.textContent = `Método: ${methodLabel}${elemLabel ? ` (${elemLabel})` : ""} | Escolha: ${d6Desc} | Momento: ${D10_MOMENTS[state.d10-1].desc}${comboTag}`;
+    rollDamageBtn.textContent =
+      (gen.damageMode === "none") ? "Rolar" : "Rolar dano";
+  }
 
-  // Gera texto da magia (comboApplied altera a descrição/dano)
-  const spell = Magia.generate({
-    cardKey: state.usedCard.key,
-    methodIndex: methodIdx,
-    elementLabel: elemLabel,
-    d6ChoiceName: state.d6ChoiceName,
-    d10Index: state.d10,
-    comboApplied: state.comboApplied,
+  function refreshActionsAndResult(){
+    renderSeq();
+    renderActions();
+    renderResult();
+  }
+
+  // ============================
+  // Rolagem (dano/escudo)
+  // ============================
+
+  function rollDamage(){
+    const mode = rollDamageBtn.dataset.mode || "none";
+    if(mode === "none") return;
+
+    playRoll();
+
+    const bCount = Math.max(1, countInSeq("buster"));
+    const qCount = Math.max(1, countInSeq("quick"));
+    const aCount = Math.max(1, countInSeq("arts"));
+
+    if(mode === "shield"){
+      const v = randInt(1,12);
+      damageOut.textContent = `1d12 (escudo) = ${v}`;
+      return;
+    }
+
+    if(mode === "buster"){
+      const rolls = [];
+      let sum = 0;
+      for(let i=0;i<bCount;i++){
+        const r = randInt(1,10);
+        rolls.push(r);
+        sum += r;
+      }
+      damageOut.textContent = `${bCount}d10 = [${rolls.join(", ")}] (total ${sum})`;
+      return;
+    }
+
+    if(mode === "arts"){
+      const rolls = [];
+      let sum = 0;
+      for(let i=0;i<aCount;i++){
+        const r = randInt(1,8);
+        rolls.push(r);
+        sum += r;
+      }
+      damageOut.textContent = `${aCount}d8 = [${rolls.join(", ")}] (total ${sum})`;
+      return;
+    }
+
+    if(mode === "quick"){
+      const n = Math.max(1, Math.min(12, parseInt(targetsCount.value,10) || 1));
+
+      const perTarget = [];
+      let grand = 0;
+
+      for(let t=0;t<n;t++){
+        const rolls = [];
+        let sum = 0;
+        for(let i=0;i<qCount;i++){
+          const r = randInt(1,6);
+          rolls.push(r);
+          sum += r;
+        }
+        grand += sum;
+        perTarget.push(qCount === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
+      }
+
+      damageOut.textContent = `${n} alvo(s) × ${qCount}d6 = [${perTarget.join(" | ")}] (total ${grand})`;
+      return;
+    }
+  }
+
+  // ============================
+  // Executar (consome sequência)
+  // ============================
+
+  function executeAction(){
+    if(state.seq.length === 0) return;
+
+    playClick();
+
+    state.seq = [];
+    state.selectedActionId = null;
+
+    damageOut.textContent = "—";
+    resultTitle.textContent = "—";
+    resultTags.textContent = "—";
+    resultText.textContent = "Técnica executada. Monte uma nova sequência.";
+
+    rollDamageBtn.disabled = true;
+    executeBtn.disabled = true;
+    rollDamageBtn.dataset.mode = "none";
+    rollDamageBtn.textContent = "Rolar";
+
+    renderHand();
+    syncHandCount();
+    refreshActionsAndResult();
+  }
+
+  // ============================
+  // Comprar / Reset
+  // ============================
+
+  function fillHand(){
+    const need = state.handLimit - state.hand.length;
+    if(need <= 0) return;
+
+    // compra com ritmo (fica mais divertido)
+    for(let i=0;i<need;i++){
+      setTimeout(()=>{
+        const c = drawCardRandom();
+        if(addToHand(c)){
+          animateDraw(c);
+          playDraw();
+          renderHand();
+          syncHandCount();
+        }
+      }, i * 140);
+    }
+  }
+
+  function drawOne(){
+    const c = drawCardRandom();
+    if(addToHand(c)){
+      animateDraw(c);
+      playDraw();
+      renderHand();
+      syncHandCount();
+    }
+  }
+
+  function resetAll(){
+    state.hand = [];
+    state.seq = [];
+    state.selectedActionId = null;
+
+    damageOut.textContent = "—";
+    resultTitle.textContent = "—";
+    resultTags.textContent = "—";
+    resultText.textContent = "Monte uma sequência e selecione uma ação.";
+
+    rollDamageBtn.disabled = true;
+    executeBtn.disabled = true;
+    rollDamageBtn.dataset.mode = "none";
+    rollDamageBtn.textContent = "Rolar";
+
+    renderHand();
+    renderSeq();
+    renderActions();
+    syncHandCount();
+  }
+
+  // ============================
+  // Eventos
+  // ============================
+
+  fillHandBtn.addEventListener("click", ()=>{ playClick(); fillHand(); });
+  drawOneBtn.addEventListener("click", ()=>{ playClick(); drawOne(); });
+  resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
+
+  handLimitInput.addEventListener("change", ()=> setHandLimit(parseInt(handLimitInput.value,10) || 7));
+
+  modeSelect.addEventListener("change", ()=>{
+    playClick();
+    state.mode = modeSelect.value || "volumen";
+    state.selectedActionId = null;
+    damageOut.textContent = "—";
+    refreshActionsAndResult();
   });
 
-  spellSummary.textContent = spell.summary;
-  spellText.textContent = spell.text;
+  artsMode.addEventListener("change", ()=>{
+    // afeta só a técnica genérica quando termina em Arts
+    damageOut.textContent = "—";
+    renderResult();
+  });
 
-  // Recuperação compra 1 carta (respeitando limite)
-  if(state.d6 === 6 && state.d6Pick === "B"){
-    if(state.hand.length < state.handLimit){
-      const c = drawCardRandom();
-      addToHand(c);
-      animateDraw(c);
-      renderHand();
-      renderSelectedPanel();
-    }
-  }
+  rollDamageBtn.addEventListener("click", ()=> rollDamage());
+  executeBtn.addEventListener("click", ()=> executeAction());
 
-  // Se o Momento foi COMBO, arma para o próximo turno
-  if(d10N === "Combo"){
-    state.comboArmed = true;
-    state.comboFromCardKey = state.usedCard.key;
-  }
-}
+  // ============================
+  // Init
+  // ============================
 
-// ============================
-// Tabelas
-// ============================
+  (function init(){
+    state.mode = modeSelect.value || "volumen";
+    setHandLimit(parseInt(handLimitInput.value,10) || 7);
 
-function renderTables(){
-  if(tableD8){
-    tableD8.innerHTML = "";
-    D8_METHODS.forEach((t)=>{
-      const li = document.createElement("li");
-      li.textContent = t;
-      tableD8.appendChild(li);
-    });
-  }
+    resetAll();
+    fillHand();
+    refreshActionsAndResult();
+  })();
 
-  if(tableD10){
-    tableD10.innerHTML = "";
-    D10_MOMENTS.forEach((o)=>{
-      const li = document.createElement("li");
-      li.textContent = `${o.name} — ${o.desc}`;
-      tableD10.appendChild(li);
-    });
-  }
-
-  if(tableD6){
-    tableD6.innerHTML = "";
-    D6_CHOICES.forEach((o, i)=>{
-      const box = document.createElement("div");
-      box.className = "ruleBox";
-      box.innerHTML = `
-        <div class="ruleHead">
-          <div class="ruleName">${i+1}) ${o.pair[0]} ou ${o.pair[1]}</div>
-        </div>
-        <div class="ruleDesc">${o.a}</div>
-        <div class="ruleDesc" style="margin-top:6px">${o.b}</div>
-      `;
-      tableD6.appendChild(box);
-    });
-  }
-}
-
-// ============================
-// Limite da mão (input)
-// ============================
-
-function applyHandLimitFromUI(){
-  if(!handLimitInput) return;
-  const v = clampHandLimit(parseInt(handLimitInput.value, 10));
-  handLimitInput.value = String(v);
-  state.handLimit = v;
-
-  // se reduzir e a mão ficou maior que o limite, corta o excesso do fim
-  if(state.hand.length > state.handLimit){
-    state.hand = state.hand.slice(0, state.handLimit);
-    if(state.selectedHandIndex != null && state.selectedHandIndex >= state.handLimit){
-      state.selectedHandIndex = null;
-    }
-  }
-
-  renderHand();
-  renderSelectedPanel();
-}
-
-// ============================
-// Reset
-// ============================
-
-function resetAll(){
-  state.hand = [];
-  state.selectedHandIndex = null;
-  state.usedCard = null;
-
-  state.d6 = null; state.d8 = null; state.d10 = null; state.elem = null;
-  state.d6Pick = null; state.d6ChoiceName = null;
-  state.methodOverride = null;
-
-  state.comboArmed = false;
-  state.comboFromCardKey = null;
-  state.comboApplied = false;
-
-  resetDiceUI();
-  hideD6Choice();
-  clearOutputs();
-
-  if(rollBtn) rollBtn.disabled = true;
-
-  renderHand();
-  renderSelectedPanel();
-}
-
-// ============================
-// Eventos
-// ============================
-
-if(newTurnBtn) newTurnBtn.addEventListener("click", ()=>{ newTurnFill(); });
-if(drawOneBtn) drawOneBtn.addEventListener("click", ()=>{ drawOne(); });
-
-if(resetBtn) resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
-
-if(useCardBtn) useCardBtn.addEventListener("click", ()=>{ useSelectedCard(); });
-
-if(rollBtn) rollBtn.addEventListener("click", ()=>{ rollDice(); });
-
-if(optA) optA.addEventListener("click", ()=>{ applyD6Pick("A"); });
-if(optB) optB.addEventListener("click", ()=>{ applyD6Pick("B"); });
-
-if(adaptMethod) adaptMethod.addEventListener("change", ()=>{ onAdaptChange(); });
-
-if(handLimitInput){
-  handLimitInput.addEventListener("change", ()=>{ playClick(); applyHandLimitFromUI(); });
-  handLimitInput.addEventListener("input", ()=>{ applyHandLimitFromUI(); });
-}
-
-// ============================
-// Init
-// ============================
-
-(function init(){
-  renderTables();
-  if(handLimitInput) applyHandLimitFromUI();
-  resetAll();
-  newTurnFill(); // começa com mão cheia por padrão
 })();

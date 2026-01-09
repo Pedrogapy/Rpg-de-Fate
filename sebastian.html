@@ -1,0 +1,208 @@
+<!-- sebastian.html -->
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sebastian — Cartas & Ações</title>
+
+  <!-- Tema base do projeto -->
+  <link rel="stylesheet" href="simulador.css" />
+  <link rel="stylesheet" href="sebastian.css" />
+</head>
+
+<body>
+  <header class="top">
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo">F</div>
+        <div>
+          <h1>Sebastian — Cartas & Ações</h1>
+          <p>Volumen Hydrargyrum • técnicas por sequência de cartas (até 3) • modo Volumen / Taumaturgia</p>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="index.html">Voltar</a>
+        <a href="adao.html">Adão</a>
+        <a href="#cartas">Cartas</a>
+        <a href="#acoes">Ações</a>
+        <a href="#resultado">Resultado</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="cardSection">
+      <div class="grid2">
+        <div class="panel">
+          <h3>Referências visuais</h3>
+
+          <div class="sebRefGrid">
+            <div class="refCard">
+              <div class="refTitle">Sebastian</div>
+              <img class="refImg" src="assets/sebastian_ref.png" alt="Sebastian (referência)" />
+              <div class="muted refHint">Coloque em <code>assets/sebastian_ref.png</code></div>
+            </div>
+
+            <div class="refCard">
+              <div class="refTitle">Volumen Hydrargyrum</div>
+              <img class="refImg" src="assets/volumen_ref.png" alt="Volumen (referência)" />
+              <div class="muted refHint">Coloque em <code>assets/volumen_ref.png</code></div>
+            </div>
+          </div>
+
+          <div class="hint">
+            Esta página não decide acerto/falha. Ela organiza cartas, sequência e descreve técnicas do Volumen.
+          </div>
+        </div>
+
+        <div class="panel">
+          <h3>Regras rápidas</h3>
+
+          <div class="ruleBox">
+            <div class="ruleHead"><div class="ruleName">Buster</div></div>
+            <div class="ruleDesc">Foca 1 alvo. Técnicas ofensivas rolam <strong>1d10 por carta Buster</strong> no combo (alvo principal).</div>
+          </div>
+
+          <div class="ruleBox" style="margin-top:10px">
+            <div class="ruleHead"><div class="ruleName">Quick</div></div>
+            <div class="ruleDesc">Afeta vários alvos. Técnicas ofensivas rolam <strong>1d6 por carta Quick</strong> em <strong>cada alvo</strong>.</div>
+          </div>
+
+          <div class="ruleBox" style="margin-top:10px">
+            <div class="ruleHead"><div class="ruleName">Arts</div></div>
+            <div class="ruleDesc">Focado em efeito. Em técnicas ofensivas específicas, pode rolar <strong>1d8 por carta Arts</strong>.</div>
+          </div>
+
+          <div class="ruleBox" style="margin-top:10px">
+            <div class="ruleHead"><div class="ruleName">Escudo</div></div>
+            <div class="ruleDesc">Qualquer escudo absorve <strong>1d12</strong> de dano (rolado ao selecionar técnica de defesa).</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cartas" class="cardSection">
+      <h2>1) Mão de cartas (limite ajustável)</h2>
+      <p class="muted">Compre cartas até o limite. Depois selecione até 3 cartas em sequência e escolha uma técnica.</p>
+
+      <div class="panel">
+        <div class="topControls">
+          <div class="controls" style="margin:0">
+            <button id="fillHandBtn" class="btn primary">Encher mão</button>
+            <button id="drawOneBtn" class="btn">Comprar 1</button>
+            <button id="resetBtn" class="btn">Reset</button>
+
+            <label class="toggle">
+              <input id="soundToggle" type="checkbox" checked />
+              <span>Som</span>
+            </label>
+          </div>
+
+          <div class="limitBox">
+            <div class="limitLabel">Limite da mão</div>
+            <div class="limitRow">
+              <input id="handLimit" class="limitInput" type="number" min="1" max="12" step="1" value="7" />
+              <div class="muted">Padrão: 7</div>
+            </div>
+          </div>
+
+          <div class="modeBox">
+            <div class="limitLabel">Modo</div>
+            <div class="limitRow">
+              <select id="modeSelect" class="modeSelect">
+                <option value="volumen" selected>Volumen</option>
+                <option value="taumaturgia">Taumaturgia (placeholder)</option>
+              </select>
+              <div class="muted" id="modeHint">Volumen: técnicas com mercúrio.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:14px">
+          <div class="panel softPanel">
+            <div class="deckArea" style="padding:0">
+              <div id="deck" class="deck" aria-label="Baralho">
+                <div class="cardBack"></div>
+                <div class="cardBack"></div>
+
+                <div id="flyingCard" class="flyingCard" aria-hidden="true">
+                  <div class="cardFace">
+                    <div class="cardType">—</div>
+                    <div class="cardSub">carta comprada</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="muted" style="padding:14px 16px 0">
+                Clique em <strong>Encher mão</strong> ou <strong>Comprar 1</strong>. Depois clique numa carta para colocar na sequência.
+              </div>
+            </div>
+          </div>
+
+          <div class="panel softPanel">
+            <div class="handHeader">
+              <div>
+                <div style="font-weight:900">Mão</div>
+                <div class="muted">Cartas na mão: <strong id="handCount">0</strong></div>
+              </div>
+            </div>
+
+            <div id="handGrid" class="handGrid" aria-label="Mão de cartas"></div>
+
+            <div class="seqWrap">
+              <div class="seqTitle">Sequência (até 3 cartas)</div>
+              <div id="seqSlots" class="seqSlots" aria-label="Sequência"></div>
+              <div class="muted" style="margin-top:10px">Clique no slot para devolver a carta.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="acoes" class="cardSection">
+      <h2>2) Ações disponíveis</h2>
+      <p class="muted">As técnicas mudam conforme a sequência. No modo Volumen, sempre haverá opções para qualquer sequência (1–3 cartas).</p>
+
+      <div class="grid2">
+        <div class="panel">
+          <div id="actionsHint" class="muted">Monte uma sequência para ver ações compatíveis.</div>
+          <div id="actionsList" class="actionsList" aria-label="Lista de ações"></div>
+        </div>
+
+        <div id="resultado" class="panel softPanel resultBox">
+          <div class="spellHeader">
+            <div>
+              <div id="resultTitle" class="spellTitle">—</div>
+              <div id="resultTags" class="spellTags muted">—</div>
+            </div>
+          </div>
+
+          <pre id="resultText" class="spellText">Monte uma sequência e selecione uma ação.</pre>
+
+          <div class="damageRow">
+            <div class="damageControls">
+              <label class="muted">Alvos (Quick):</label>
+              <input id="targetsCount" class="limitInput" type="number" min="1" max="12" step="1" value="3" />
+              <button id="rollDamageBtn" class="btn primary" disabled>Rolar dano</button>
+              <button id="executeBtn" class="btn" disabled>Executar (consome sequência)</button>
+            </div>
+
+            <div class="damageOut">
+              <div class="muted">Resultado</div>
+              <div id="damageOut" class="damageValue">—</div>
+            </div>
+          </div>
+
+          <div class="muted" style="margin-top:10px">
+            Observação: rolagem de dano aqui é só referência. Acerto/falha e efeitos finais continuam com o mestre.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="sebastian.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+/* sebastian.css */
+/* Complementa simulador.css no mesmo estilo do Adão */
+
+.sebRefGrid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+
+.modeBox{
+  min-width:260px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:10px 12px;
+  background:
+    radial-gradient(560px 160px at 10% 10%, rgba(255,255,255,.06), rgba(255,255,255,.02));
+}
+
+.modeSelect{
+  padding:8px 10px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.18);
+  color:#eaf2ff;
+  outline:none;
+}
+
+.topControls{
+  display:flex;
+  gap:12px;
+  align-items:flex-end;
+  justify-content:space-between;
+  flex-wrap:wrap;
+}
+
+.softPanel{
+  border:1px solid rgba(255,255,255,.10);
+  background:
+    radial-gradient(680px 240px at 10% 10%, rgba(255,255,255,.06), rgba(255,255,255,.02)),
+    linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+}
+
+.resultBox pre{
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

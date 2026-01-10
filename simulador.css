@@ -78,7 +78,7 @@ a:hover{opacity:.9}
   padding-bottom:26px;
 }
 @media (max-width: 960px){
-  .grid{grid-template-columns:1fr}
+  .grid -> grid-template-columns:1fr;
   .hero{align-items:flex-start;flex-direction:column}
   .heroControls{justify-content:flex-start}
 }

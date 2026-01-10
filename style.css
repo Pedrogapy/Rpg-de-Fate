@@ -56,20 +56,9 @@ a{color:inherit;text-decoration:none}
 .nav a{color:var(--muted); font-weight:800}
 .nav a:hover{color:var(--txt)}
 
-.hero{
-  padding:26px 0 10px;
-}
-.hero h1{
-  margin:0;
-  font-size:28px;
-  letter-spacing:.2px;
-}
-.hero p{
-  margin:10px 0 0;
-  color:var(--muted);
-  max-width:760px;
-  line-height:1.5;
-}
+.hero{padding:26px 0 10px}
+.hero h1{margin:0;font-size:28px;letter-spacing:.2px}
+.hero p{margin:10px 0 0;color:var(--muted);max-width:760px;line-height:1.5}
 
 .cards{
   display:grid;
@@ -107,22 +96,9 @@ a{color:inherit;text-decoration:none}
 .cardTitle{font-weight:1000; font-size:18px}
 .cardSub{color:var(--muted); font-size:12px; line-height:1.35}
 
-.cardBody{
-  margin-top:14px;
-  color:var(--txt);
-  flex:1;
-}
-.cardBody ul{
-  margin:0;
-  padding-left:18px;
-  color:var(--muted);
-  line-height:1.6;
-}
-.cardFoot{
-  margin-top:14px;
-  color:#caa7ff;
-  font-weight:950;
-}
+.cardBody{margin-top:14px;flex:1}
+.cardBody ul{margin:0;padding-left:18px;color:var(--muted);line-height:1.6}
+.cardFoot{margin-top:14px;color:#caa7ff;font-weight:950}
 
 .note{
   margin:18px 0 28px;

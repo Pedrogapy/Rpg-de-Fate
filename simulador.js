@@ -24,8 +24,8 @@
   // Estado
   // =========================
   const state = {
-    hand: [],       // cartas na mão (objs CARDS)
-    seq: [],        // sequência (objs CARDS)
+    hand: [],
+    seq: [],
     selectedActionId: null,
     handLimit: 7,
     mode: "taumaturgia",
@@ -228,7 +228,6 @@
   function clearSeq(){
     if(state.seq.length === 0) return;
     playClick();
-    // devolve tudo (se couber); se não couber, mantém na seq
     while(state.seq.length && state.hand.length < state.handLimit){
       state.hand.push(state.seq.pop());
     }
@@ -278,17 +277,12 @@
   // =========================
   // Ações (geradas para TODAS as sequências)
   // =========================
-
   function seqKey(seq){ return seq.join("|"); }
 
   function titleFromSeq(mode, seq){
     const first = seq[0];
     const last = seq[seq.length-1];
-    const q = seq.filter(x=>x==="quick").length;
-    const a = seq.filter(x=>x==="arts").length;
-    const b = seq.filter(x=>x==="buster").length;
 
-    // âncoras clássicas
     if(mode==="volumen" && seqKey(seq)==="buster|buster|buster") return "Guilhotina de Hydrargyrum";
     if(mode==="volumen" && seqKey(seq)==="quick|quick|quick") return "Tempestade de Estilhaços";
     if(mode==="volumen" && seqKey(seq)==="arts|arts|arts") return "Catedral de Prata";
@@ -297,36 +291,24 @@
     if(mode==="taumaturgia" && seqKey(seq)==="quick|quick|quick") return "Maré de Choque";
     if(mode==="taumaturgia" && seqKey(seq)==="arts|arts|arts") return "Circuito de Contenção";
 
-    // seleção por 'hash' simples (estável)
     const h = (seq.join("") + mode).split("").reduce((acc,ch)=>acc+ch.charCodeAt(0),0);
 
-    const endBuster = [
-      "Linha de Abate", "Pressão Focada", "Estocada Direta", "Golpe de Ponto", "Quebra-Guarda", "Fecho Rápido"
-    ];
-    const endQuick = [
-      "Varredura", "Cinturão de Impacto", "Cascata", "Redemoinho", "Arco de Dispersão", "Campo de Pressão"
-    ];
-    const endArts = [
-      "Selo", "Âncora", "Muralha", "Rastro", "Prisma", "Interferência"
-    ];
+    const endBuster = ["Linha de Abate","Pressão Focada","Estocada Direta","Golpe de Ponto","Quebra-Guarda","Fecho Rápido"];
+    const endQuick  = ["Varredura","Cinturão de Impacto","Cascata","Redemoinho","Arco de Dispersão","Campo de Pressão"];
+    const endArts   = ["Selo","Âncora","Muralha","Rastro","Prisma","Interferência"];
 
     const prefixVol = {quick:"Fragmentação", arts:"Moldagem", buster:"Condensação"};
     const prefixTau = {quick:"Onda", arts:"Runa", buster:"Compressão"};
 
-    const prefix = (mode==="volumen")
-      ? (prefixVol[first] || "Volumen")
-      : (prefixTau[first] || "Taumaturgia");
-
+    const prefix = (mode==="volumen") ? (prefixVol[first] || "Volumen") : (prefixTau[first] || "Taumaturgia");
     const pool = (last==="buster") ? endBuster : (last==="quick") ? endQuick : endArts;
     const core = pool[h % pool.length];
 
-    // tempero por contagem
     let suf = "";
     if(seq.length===1) suf = " (Simples)";
     else if(seq.length===2) suf = " (Dupla)";
     else suf = " (Tríplice)";
 
-    // evita nomes repetidos gigantes
     return `${prefix}: ${core}${suf}`;
   }
 
@@ -350,19 +332,13 @@
   }
 
   function kindAndDamageMode(seq, last){
-    const q = seq.filter(x=>x==="quick").length;
     const a = seq.filter(x=>x==="arts").length;
     const b = seq.filter(x=>x==="buster").length;
 
-    // Defesa: muita Arts e termina em Arts
     if(last==="arts" && a>=2 && b===0) return { kind:"Defesa", dmgMode:"shield", tags:"proteção • controle" };
-
-    // Efeito: termina em Arts
     if(last==="arts") return { kind:"Efeito/Controle", dmgMode:"artsMaybe", tags:"controle • utilidade" };
-
-    // Ataques
-    if(last==="quick") return { kind:"Ataque", dmgMode:"quick", tags:`área • ${q} passo(s) Quick` };
-    return { kind:"Ataque", dmgMode:"buster", tags:`alvo único • ${b} passo(s) Buster` };
+    if(last==="quick") return { kind:"Ataque", dmgMode:"quick", tags:`área • ${seq.filter(x=>x==="quick").length} passo(s) Quick` };
+    return { kind:"Ataque", dmgMode:"buster", tags:`alvo único • ${seq.filter(x=>x==="buster").length} passo(s) Buster` };
   }
 
   function damageLine(dmgMode, seq){
@@ -373,11 +349,10 @@
     if(dmgMode==="shield") return "Absorção: 1d12 (escudo).";
     if(dmgMode==="buster") return `Dano: ${b}d10 (impacto em 1 alvo).`;
     if(dmgMode==="quick")  return `Dano: ${q}d6 em cada alvo atingido.`;
-    // artsMaybe
     return `Arts: ${a}d8 se você escolher “Dano”; se escolher “Efeito”, não rola dano.`;
   }
 
-  function resultTextFromAction(action, ctx){
+  function resultTextFromAction(action){
     const seq = action.req.slice();
     const last = seq[seq.length-1];
     const rt = reachAndTargets(last);
@@ -410,14 +385,9 @@
 
     const seqs = [];
     function gen(prefix, depth, target){
-      if(depth===target){
-        seqs.push(prefix.slice());
-        return;
-      }
+      if(depth===target){ seqs.push(prefix.slice()); return; }
       for(const k of ORDER){
-        prefix.push(k);
-        gen(prefix, depth+1, target);
-        prefix.pop();
+        prefix.push(k); gen(prefix, depth+1, target); prefix.pop();
       }
     }
     for(let len=1; len<=3; len++) gen([],0,len);
@@ -429,48 +399,40 @@
       const id = `${mode}:${seqKey(seq)}`;
       const name = titleFromSeq(mode, seq);
 
-      // linha de resultado (bem clara)
-      const q = seq.filter(x=>x==="quick").length;
-      const a = seq.filter(x=>x==="arts").length;
-      const b = seq.filter(x=>x==="buster").length;
-
       let resultLine = "";
       if(mode==="volumen"){
-        if(km.damageMode==="buster"){
-          resultLine = "Você usa o(s) passo(s) anteriores para abrir brecha e termina condensando o mercúrio num golpe curto e pesado no alvo.";
-        }else if(km.damageMode==="quick"){
+        if(km.dmgMode==="buster"){
+          resultLine = "Você usa os passos anteriores para abrir brecha e termina condensando o mercúrio num golpe curto e pesado no alvo.";
+        }else if(km.dmgMode==="quick"){
           resultLine = "Você espalha o mercúrio na área e transforma movimento em risco: varre, corta e empurra o grupo para fora de posição.";
-        }else if(km.damageMode==="shield"){
+        }else if(km.dmgMode==="shield"){
           resultLine = "Você ergue placas e fios prateados ao redor de você, criando uma cobertura móvel que absorve impacto por um momento.";
         }else{
           resultLine = "Você cria um efeito com mercúrio: marca, travamento, detecção, armadilha curta ou alteração de terreno imediato (coerente com a cena).";
         }
       }else{
-        if(km.damageMode==="buster"){
-          resultLine = "Você usa o(s) passo(s) anteriores para desorganizar a defesa e termina com uma descarga de pressão concentrada no alvo (gesto de tiro/pancada).";
-        }else if(km.damageMode==="quick"){
+        if(km.dmgMode==="buster"){
+          resultLine = "Você desorganiza a defesa e termina com uma descarga de pressão concentrada no alvo (gesto de tiro/pancada).";
+        }else if(km.dmgMode==="quick"){
           resultLine = "Você espalha pressão em área para varrer, deslocar e limitar escolhas do inimigo, atingindo vários alvos na zona.";
-        }else if(km.damageMode==="shield"){
-          resultLine = "Você fecha um circuito de runas que cria uma ‘parede de força’ curta, absorvendo o impacto e segurando avanço por um instante.";
+        }else if(km.dmgMode==="shield"){
+          resultLine = "Você fecha um circuito de runas que cria uma parede de força curta, absorvendo o impacto e segurando avanço por um instante.";
         }else{
           resultLine = "Você aplica uma runa/pressão como efeito: interferência, selo, empurrão controlado, marca de rastreio ou micro-alteração de terreno.";
         }
       }
 
       actions.set(id, {
-        id,
-        mode,
-        modeLabel,
+        id, mode, modeLabel,
         req: seq,
         name,
         kind: km.kind,
         tags: km.tags,
-        damageMode: km.damageMode,
+        damageMode: km.dmgMode,
         resultLine,
-        text: (ctx) => resultTextFromAction({mode, modeLabel, req:seq, damageMode:km.damageMode, resultLine}, ctx),
+        text: ()=> resultTextFromAction({mode, modeLabel, req: seq, damageMode: km.dmgMode, resultLine})
       });
     }
-
     return actions;
   }
 
@@ -528,23 +490,14 @@
       damageOut.textContent = "—";
       renderResult();
     });
-    actionsList.appendChild(div);
 
-    // autoseleciona
+    actionsList.appendChild(div);
     state.selectedActionId = action.id;
   }
 
   // =========================
   // Resultado
   // =========================
-  function ctxForText(){
-    return {
-      busterCount: Math.max(1, countInSeq("buster")),
-      quickCount: Math.max(1, countInSeq("quick")),
-      artsCount: Math.max(1, countInSeq("arts")),
-    };
-  }
-
   function resolveDamageMode(action){
     if(!action) return "none";
     if(action.damageMode === "artsMaybe"){
@@ -578,12 +531,11 @@
       return;
     }
 
-    const ctx = ctxForText();
     resultTitle.textContent = action.name;
     resultTags.textContent =
       `${state.mode === "volumen" ? "Volumen" : "Taumaturgia"} • ${action.kind} • ${action.tags} • Sequência: ${prettySeq(action.req)}`;
 
-    resultText.textContent = action.text(ctx);
+    resultText.textContent = action.text();
 
     const dmgMode = resolveDamageMode(action);
     rollDamageBtn.dataset.mode = dmgMode;

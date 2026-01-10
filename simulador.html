@@ -1,179 +1,186 @@
-<!DOCTYPE html>
-<html lang="pt-br">
+<!doctype html>
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Sebastian — Cartas & Técnicas</title>
   <link rel="stylesheet" href="simulador.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
+  <header class="top">
+    <div class="wrap topRow">
       <div class="brand">
-        <div class="logo">F</div>
+        <div class="brandMark">FATE</div>
         <div class="brandText">
-          <div class="brandTitle">RPG de Fate</div>
-          <div class="brandSub">Sebastian • Taumaturgia (Pressão + Runas) e Volumen Hydrargyrum</div>
+          <h1>Sebastian — Cartas & Técnicas</h1>
+          <p>Taumaturgia (Pressão + Runas) e Volumen Hydrargyrum • técnicas por sequência de 1 a 3 cartas</p>
         </div>
       </div>
 
-      <nav class="nav">
-        <a class="navLink" href="index.html">Início</a>
-        <a class="navLink isActive" href="simulador.html">Sebastian</a>
-        <a class="navLink" href="adao.html">Adão</a>
+      <nav class="topNav">
+        <a class="link" href="index.html">Início</a>
+        <a class="link" href="adao.html">Adão</a>
       </nav>
     </div>
   </header>
 
-  <main class="container">
+  <main class="wrap">
     <section class="hero">
-      <h1 class="heroTitle">Sebastian — Cartas & Técnicas</h1>
-      <p class="heroSub">
-        Monte mão, crie uma sequência (até 3) e escolha a técnica. Esta página organiza cartas, sequência e descreve o efeito — acerto/falha é do mestre.
-      </p>
+      <div class="heroText">
+        <div class="heroTitle">Monte sequências e jogue técnicas</div>
+        <div class="heroSub">
+          Regras: <b>Buster</b> rola <b>1d10</b> por carta Buster no combo (alvo único). 
+          <b>Quick</b> rola <b>1d6</b> por carta Quick em <b>cada alvo</b> da área. 
+          <b>Arts</b> rola <b>1d8</b> por carta Arts <b>se</b> você escolher usar como dano; senão vira efeito.
+        </div>
+      </div>
 
-      <div class="heroMeta">
-        <span class="metaPill">Buster: 1 alvo</span>
-        <span class="metaPill">Quick: vários alvos</span>
-        <span class="metaPill">Arts: efeito / “temperar”</span>
-        <span class="metaPill">Sequência: até 3 cartas</span>
+      <div class="heroControls">
+        <label class="pill">
+          <span>Modo</span>
+          <select id="modeSelect">
+            <option value="taumaturgia">Taumaturgia</option>
+            <option value="volumen">Volumen</option>
+          </select>
+        </label>
+
+        <label class="pill" title="Som de cartas (oscillator)">
+          <input id="soundToggle" type="checkbox" checked />
+          <span>Som</span>
+        </label>
+
+        <label class="pill">
+          <span>Limite</span>
+          <input id="handLimit" type="number" min="1" max="12" value="7" />
+        </label>
+
+        <button id="resetBtn" class="btn ghost">Reset</button>
       </div>
     </section>
 
-    <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <h2 class="panelTitle">Deck</h2>
-          <p class="panelHint">Monte sequências de até 3 cartas e libere técnicas.</p>
-        </div>
-        <div class="deckControls">
-          <button class="btn" id="fillHandBtn">Novo turno</button>
-          <button class="btn" id="drawOneBtn">Comprar 1</button>
-
-          <label class="field">
-            Limite:
-            <input class="input" id="handLimit" type="number" min="1" max="12" value="7" />
-          </label>
-
-          <button class="btn danger" id="resetBtn">Reset</button>
-
-          <label class="toggle">
-            <input type="checkbox" id="soundToggle" checked />
-            Som
-          </label>
-        </div>
-      </div>
-
-      <div class="deckRow">
-        <div class="deckAnim deck" id="deck">
-          <div class="flyingCard" id="flyingCard" aria-hidden="true">
-            <div class="cardType">—</div>
-            <div class="cardNote">Clique em “Comprar 1” ou “Novo turno”</div>
-          </div>
-          <div class="deckStack" aria-hidden="true"></div>
-        </div>
-
-        <div class="row">
-          <label class="field">
-            Modo:
-            <select class="select" id="modeSelect">
-              <option value="taumaturgia">Taumaturgia (Pressão + Runas)</option>
-              <option value="volumen">Volumen Hydrargyrum</option>
-            </select>
-          </label>
-
-          <span class="hint" id="modeHint"></span>
-        </div>
-      </div>
-    </section>
-
-    <section class="grid2">
-      <section class="panel">
-        <div class="panelHeader">
+    <section class="grid">
+      <!-- Deck -->
+      <div class="panel">
+        <div class="panelHead">
           <div>
-            <h2 class="panelTitle">Mão</h2>
-            <p class="panelHint">Clique em cartas para montar a sequência (até 3). Clique de novo para remover.</p>
+            <div class="panelTitle">Deck</div>
+            <div class="panelSub" id="modeHint">Escolha modo, compre cartas e monte uma sequência.</div>
           </div>
-          <div class="muted">Cartas na mão: <span id="handCount">0</span></div>
         </div>
 
-        <div class="handGrid" id="handGrid"></div>
+        <div class="deckRow">
+          <div id="deck" class="deck">
+            <div class="deckStack"></div>
+            <div id="flyingCard" class="flyingCard buster">
+              <div class="cardType">Buster</div>
+            </div>
+          </div>
 
-        <div class="panelFoot hint">
-          Dica: Arts “tempera” técnicas. Quick tende a expandir alvos. Buster finaliza com dano em 1 alvo.
+          <div class="deckControls">
+            <button id="fillHandBtn" class="btn">Novo turno (comprar até o limite)</button>
+            <button id="drawOneBtn" class="btn ghost">Comprar 1 carta</button>
+
+            <div class="mini">
+              <div class="miniLabel">Na mão</div>
+              <div class="miniValue"><span id="handCount">0</span>/<span id="handLimitEcho">7</span></div>
+            </div>
+          </div>
         </div>
-      </section>
+      </div>
 
-      <section class="panel">
-        <div class="panelHeader">
+      <!-- Mão -->
+      <div class="panel">
+        <div class="panelHead">
           <div>
-            <h2 class="panelTitle">Sequência</h2>
-            <p class="panelHint">Até 3 cartas. A última define o “final” (Buster/Quick/Arts).</p>
-          </div>
-          <div class="row">
-            <button class="btn" id="clearSeqBtn">Limpar sequência</button>
+            <div class="panelTitle">Mão</div>
+            <div class="panelSub">Clique numa carta para colocar na sequência (máx. 3).</div>
           </div>
         </div>
 
-        <div class="seqSlots" id="seqSlots">
-          <div class="seqSlot" data-slot="0"><span class="slotLabel">1</span></div>
-          <div class="seqSlot" data-slot="1"><span class="slotLabel">2</span></div>
-          <div class="seqSlot" data-slot="2"><span class="slotLabel">3</span></div>
-        </div>
-
-        <div class="panelFoot hint">
-          <div id="actionsHint" class="muted"></div>
-        </div>
-      </section>
-    </section>
-
-    <section class="panel">
-      <div class="panelHeader">
-        <div>
-          <h2 class="panelTitle">Técnicas</h2>
-          <p class="panelHint">A lista abaixo muda conforme o modo e a sequência.</p>
-        </div>
-
-        <div class="row">
-          <label class="field">
-            Alvos (Quick):
-            <input class="input" id="targetsCount" type="number" min="2" max="8" value="3" />
-          </label>
-
-          <label class="field">
-            Arts:
-            <select class="select" id="artsMode">
-              <option value="efeito">Efeito / controle</option>
-              <option value="bencao">Benção / reforço</option>
-              <option value="marca">Marca / debuff</option>
-              <option value="dissipar">Dissipar / limpar</option>
-            </select>
-          </label>
-        </div>
+        <div id="handGrid" class="handGrid"></div>
       </div>
 
-      <div class="actionsList" id="actionsList"></div>
-    </section>
+      <!-- Sequência + Técnicas -->
+      <div class="panel">
+        <div class="panelHead">
+          <div>
+            <div class="panelTitle">Sequência</div>
+            <div class="panelSub">A ordem importa. Clique no slot preenchido para devolver a carta.</div>
+          </div>
+          <button id="clearSeqBtn" class="btn ghost small">Limpar</button>
+        </div>
 
-    <section class="panel">
-      <div class="resultHeader">
-        <div>
-          <div class="resultTitle" id="resultTitle">Selecione uma técnica</div>
-          <div class="resultTags" id="resultTags"></div>
+        <div id="seqSlots" class="seqSlots"></div>
+
+        <div class="divider"></div>
+
+        <div class="panelHead">
+          <div>
+            <div class="panelTitle">Técnica</div>
+            <div class="panelSub" id="actionsHint">Monte uma sequência para ver a técnica.</div>
+          </div>
         </div>
-        <div class="resultActions">
-          <button class="btn" id="rollDamageBtn" disabled>Rolar dano</button>
-          <button class="btn primary" id="executeBtn" disabled>Executar</button>
-        </div>
+
+        <div id="actionsList" class="actionsList"></div>
       </div>
 
-      <div class="resultText" id="resultText">
-        Monte uma sequência e clique em uma técnica para ver o resultado aqui.
-      </div>
+      <!-- Resultado -->
+      <div class="panel">
+        <div class="panelHead">
+          <div>
+            <div class="panelTitle">Detalhes</div>
+            <div class="panelSub">Selecione a técnica e role o valor.</div>
+          </div>
+        </div>
 
-      <div class="damageOut" id="damageOut"></div>
+        <div class="resultTop">
+          <div>
+            <div id="resultTitle" class="resultTitle">—</div>
+            <div id="resultTags" class="resultTags">—</div>
+          </div>
+
+          <div class="resultTools">
+            <label class="pill small">
+              <span>Quick alvos</span>
+              <input id="targetsCount" type="number" min="1" max="12" value="2" />
+            </label>
+
+            <label class="pill small">
+              <span>Arts</span>
+              <select id="artsMode">
+                <option value="effect">Efeito</option>
+                <option value="damage">Dano</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <pre id="resultText" class="resultText">Monte uma sequência e selecione a técnica.</pre>
+
+        <div class="resultBottom">
+          <div class="buttons">
+            <button id="rollDamageBtn" class="btn" disabled>Rolar</button>
+            <button id="executeBtn" class="btn ghost" disabled>Executar (consome cartas)</button>
+          </div>
+
+          <div class="damageBox">
+            <div class="damageLabel">Resultado</div>
+            <div id="damageOut" class="damageValue">—</div>
+          </div>
+        </div>
+
+        <div class="hint">
+          “Executar” só consome as cartas que estão na sequência. Para trocar, devolva do slot.
+        </div>
+      </div>
     </section>
   </main>
+
+  <footer class="foot">
+    <div class="wrap footRow">
+      <div class="muted">Pedro • RPG de Fate • Cartas & Técnicas</div>
+    </div>
+  </footer>
 
   <script src="simulador.js"></script>
 </body>

@@ -1,104 +1,85 @@
-<!DOCTYPE html>
-<html lang="pt-br">
+<!doctype html>
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RPG de Fate</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RPG de Fate — Cartas</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header class="topbar">
-    <div class="topbar-inner">
+  <header class="top">
+    <div class="wrap topRow">
       <div class="brand">
-        <div class="badge">FATE</div>
+        <div class="mark">FATE</div>
         <div>
-          <h1>RPG de Fate</h1>
-          <p>Ferramentas rápidas de cartas, ações e magia</p>
+          <div class="title">RPG de Fate</div>
+          <div class="sub">Páginas de cartas • simuladores • técnicas</div>
         </div>
       </div>
 
       <nav class="nav">
-        <a class="navLink isActive" href="index.html">Início</a>
-        <a class="navLink" href="simulador.html">Sebastian</a>
-        <a class="navLink" href="adao.html">Adão</a>
+        <a href="adao.html">Adão</a>
+        <a href="simulador.html">Sebastian</a>
       </nav>
     </div>
   </header>
 
-  <main class="container">
+  <main class="wrap">
     <section class="hero">
-      <h2 class="heroTitle">Escolha o que você quer abrir</h2>
-      <p class="heroSub">
-        A página principal só organiza os atalhos e mostra regras rápidas. As páginas de personagem fazem a parte “de verdade”.
+      <h1>Cartas que viram técnicas</h1>
+      <p>
+        Cada página organiza as cartas, a sequência (até 3) e descreve a técnica resultante.
+        A decisão final (acerto/falha/efeitos) continua com o mestre.
       </p>
-
-      <div class="heroMeta">
-        <span class="metaPill">Sequência: até 3 cartas</span>
-        <span class="metaPill">Buster: 1 alvo</span>
-        <span class="metaPill">Quick: vários alvos</span>
-        <span class="metaPill">Arts: efeitos</span>
-      </div>
     </section>
 
-    <section class="grid cards">
-      <article class="card">
+    <section class="cards">
+      <a class="card" href="adao.html">
         <div class="cardTop">
-          <div class="cardBadge">Sebastian</div>
-          <h3>Sebastian — Cartas & Técnicas</h3>
-          <p>
-            Monta mão, cria sequência (até 3) e escolhe técnica automaticamente.
-            Também rola o dano/efeito conforme o final da sequência.
-          </p>
+          <div class="badge red">Adão</div>
+          <div class="cardTitle">Cartas & Ações</div>
+          <div class="cardSub">Membro da igreja • arma em corrente • combos até 3 cartas</div>
         </div>
-        <div class="cardBottom">
-          <a class="primaryBtn" href="simulador.html">Abrir Sebastian</a>
-          <span class="smallNote">Arquivo: <code>simulador.html</code></span>
+        <div class="cardBody">
+          <ul>
+            <li>Compra cartas e monta sequência</li>
+            <li>Lista a ação/ataque com passos claros</li>
+            <li>Rolagem rápida por tipo (B/Q/A)</li>
+          </ul>
         </div>
-      </article>
+        <div class="cardFoot">Abrir →</div>
+      </a>
 
-      <article class="card">
+      <a class="card" href="simulador.html">
         <div class="cardTop">
-          <div class="cardBadge alt">Adão</div>
-          <h3>Adão — Cartas & Ações</h3>
-          <p>
-            Página focada em ataques/ações (arma em corrente) e na regra de
-            “temperar” uma técnica com Arts, usando sequência de até 3 cartas.
-          </p>
+          <div class="badge blue">Sebastian</div>
+          <div class="cardTitle">Cartas & Técnicas</div>
+          <div class="cardSub">Taumaturgia e Volumen Hydrargyrum • modo alternável</div>
         </div>
-        <div class="cardBottom">
-          <a class="primaryBtn" href="adao.html">Abrir Adão</a>
-          <span class="smallNote">Arquivo: <code>adao.html</code></span>
+        <div class="cardBody">
+          <ul>
+            <li>Modo: Taumaturgia / Volumen</li>
+            <li>Técnica para toda sequência 1–3</li>
+            <li>Arts: efeito ou dano (toggle)</li>
+          </ul>
         </div>
-      </article>
+        <div class="cardFoot">Abrir →</div>
+      </a>
     </section>
 
-    <section class="panel rules">
-      <div class="panelHeader">
-        <div>
-          <h3 class="panelTitle">Regras rápidas (do seu sistema)</h3>
-          <p class="panelHint">Lembrete: essa página não decide acerto/falha. Só organiza cartas, sequência e descrição.</p>
-        </div>
-      </div>
-
-      <div class="rulesGrid">
-        <div class="rule">
-          <div class="ruleTitle">Buster</div>
-          <div class="ruleText">Foca 1 alvo. Quando a técnica termina em <b>Buster</b>, pode causar até <b>1d10</b> de dano (conforme o mestre).</div>
-        </div>
-        <div class="rule">
-          <div class="ruleTitle">Quick</div>
-          <div class="ruleText">Afeta vários alvos. Quando a técnica termina em <b>Quick</b>, pode causar até <b>1d6</b> de dano <b>em cada alvo</b>.</div>
-        </div>
-        <div class="rule">
-          <div class="ruleTitle">Arts</div>
-          <div class="ruleText">É focada em efeito (controle, marca, bênção, dissipação, etc). Pode ser usada sozinha ou em sequência para “temperar” uma técnica.</div>
-        </div>
+    <section class="note">
+      <div class="noteTitle">Dica</div>
+      <div class="noteText">
+        Se algo quebrar no GitHub Pages, quase sempre é caminho de arquivo.
+        Confere se <span class="mono">assets/</span> e os <span class="mono">.html/.css/.js</span> estão na raiz do repositório.
       </div>
     </section>
-
-    <footer class="footer">
-      <div class="footerText">Tema escuro unificado, cards e botões mais bonitos. ✅</div>
-    </footer>
   </main>
+
+  <footer class="foot">
+    <div class="wrap footRow">
+      <div class="muted">Pedro • RPG de Fate</div>
+    </div>
+  </footer>
 </body>
 </html>

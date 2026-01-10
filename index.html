@@ -1,105 +1,104 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Fate RPG — Mecânica do Jogo</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RPG de Fate</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="badge">FATE</div>
+        <div>
+          <h1>RPG de Fate</h1>
+          <p>Ferramentas rápidas de cartas, ações e magia</p>
+        </div>
+      </div>
 
-<header>
-  <h1>Fate RPG — Mecânica do Jogo</h1>
-  <p>Sistema de Cartas, Dados e Regras de Combate</p>
-</header>
+      <nav class="nav">
+        <a class="navLink isActive" href="index.html">Início</a>
+        <a class="navLink" href="simulador.html">Sebastian</a>
+        <a class="navLink" href="adao.html">Adão</a>
+      </nav>
+    </div>
+  </header>
 
-<nav>
-  <a href="#cartas">Cartas</a>
-  <a href="#dados">Dados</a>
-  <a href="#d8">d8</a>
-  <a href="#d6">d6</a>
-  <a href="#d10">d10</a>
-  <a href="simulador.html?v=2">Simulador</a>
-  
-</nav>
-<!-- index.html (trecho) -->
-<div class="actions">
-  <a class="btn" href="simulador.html">Abrir simulador (Sebastian)</a>
-  <a class="btn" href="adao.html">Abrir página do Adão</a>
-</div>
+  <main class="container">
+    <section class="hero">
+      <h2 class="heroTitle">Escolha o que você quer abrir</h2>
+      <p class="heroSub">
+        A página principal só organiza os atalhos e mostra regras rápidas. As páginas de personagem fazem a parte “de verdade”.
+      </p>
 
-<main>
+      <div class="heroMeta">
+        <span class="metaPill">Sequência: até 3 cartas</span>
+        <span class="metaPill">Buster: 1 alvo</span>
+        <span class="metaPill">Quick: vários alvos</span>
+        <span class="metaPill">Arts: efeitos</span>
+      </div>
+    </section>
 
-<section id="cartas">
-  <h2>Sistema de Cartas</h2>
-  <p>
-    O RPG utiliza cartas como mecânica central de ação.
-    As cartas definem alvo, área e tipo da ação.
-  </p>
-  <ul>
-    <li><strong>Quick</strong>: ações rápidas, área ou múltiplos alvos.</li>
-    <li><strong>Arts</strong>: ações técnicas, efeitos, controle e suporte.</li>
-    <li><strong>Buster</strong>: impacto concentrado em um único alvo.</li>
-  </ul>
-</section>
+    <section class="grid cards">
+      <article class="card">
+        <div class="cardTop">
+          <div class="cardBadge">Sebastian</div>
+          <h3>Sebastian — Cartas & Técnicas</h3>
+          <p>
+            Monta mão, cria sequência (até 3) e escolhe técnica automaticamente.
+            Também rola o dano/efeito conforme o final da sequência.
+          </p>
+        </div>
+        <div class="cardBottom">
+          <a class="primaryBtn" href="simulador.html">Abrir Sebastian</a>
+          <span class="smallNote">Arquivo: <code>simulador.html</code></span>
+        </div>
+      </article>
 
-<section id="dados">
-  <h2>Sistema de Dados</h2>
-  <p>
-    Alguns personagens utilizam dados para modular suas ações.
-    Esses dados não substituem as cartas nem a rolagem base do sistema.
-  </p>
-</section>
+      <article class="card">
+        <div class="cardTop">
+          <div class="cardBadge alt">Adão</div>
+          <h3>Adão — Cartas & Ações</h3>
+          <p>
+            Página focada em ataques/ações (arma em corrente) e na regra de
+            “temperar” uma técnica com Arts, usando sequência de até 3 cartas.
+          </p>
+        </div>
+        <div class="cardBottom">
+          <a class="primaryBtn" href="adao.html">Abrir Adão</a>
+          <span class="smallNote">Arquivo: <code>adao.html</code></span>
+        </div>
+      </article>
+    </section>
 
-<section id="d8">
-  <h2>d8 — Método Taumatúrgico</h2>
-  <p>Define qual princípio de taumaturgia está sendo usado.</p>
-  <ol>
-    <li>Elemental clássico</li>
-    <li>Alteração de propriedades físicas</li>
-    <li>Energia</li>
-    <li>Interferência mágica</li>
-    <li>Materialização temporária</li>
-    <li>Ressonância</li>
-    <li>Vetor</li>
-    <li>Selo técnico</li>
-  </ol>
-</section>
+    <section class="panel rules">
+      <div class="panelHeader">
+        <div>
+          <h3 class="panelTitle">Regras rápidas (do seu sistema)</h3>
+          <p class="panelHint">Lembrete: essa página não decide acerto/falha. Só organiza cartas, sequência e descrição.</p>
+        </div>
+      </div>
 
-<section id="d6">
-  <h2>d6 — Escolha Tática</h2>
-  <p>Ao rolar o d6, o jogador escolhe uma das duas opções.</p>
+      <div class="rulesGrid">
+        <div class="rule">
+          <div class="ruleTitle">Buster</div>
+          <div class="ruleText">Foca 1 alvo. Quando a técnica termina em <b>Buster</b>, pode causar até <b>1d10</b> de dano (conforme o mestre).</div>
+        </div>
+        <div class="rule">
+          <div class="ruleTitle">Quick</div>
+          <div class="ruleText">Afeta vários alvos. Quando a técnica termina em <b>Quick</b>, pode causar até <b>1d6</b> de dano <b>em cada alvo</b>.</div>
+        </div>
+        <div class="rule">
+          <div class="ruleTitle">Arts</div>
+          <div class="ruleText">É focada em efeito (controle, marca, bênção, dissipação, etc). Pode ser usada sozinha ou em sequência para “temperar” uma técnica.</div>
+        </div>
+      </div>
+    </section>
 
-  <ul>
-    <li><strong>Segurança</strong> ou <strong>Alcance</strong></li>
-    <li><strong>Precisão</strong> ou <strong>Velocidade</strong></li>
-    <li><strong>Pressão</strong> ou <strong>Controle</strong></li>
-    <li><strong>Continuidade</strong> ou <strong>Explosão</strong></li>
-    <li><strong>Adaptação</strong> ou <strong>Sinergia</strong></li>
-    <li><strong>Marca</strong> ou <strong>Recuperação</strong></li>
-  </ul>
-</section>
-
-<section id="d10">
-  <h2>d10 — Momento de Destaque</h2>
-  <ol>
-    <li>Eco</li>
-    <li>Janela</li>
-    <li>Quebra</li>
-    <li>Reação</li>
-    <li>Presságio</li>
-    <li>Ancoragem</li>
-    <li>Deslocamento</li>
-    <li>Amplificação Narrativa</li>
-    <li>Combo</li>
-    <li>Clímax</li>
-  </ol>
-</section>
-
-</main>
-
-<footer>
-  <p>Fate RPG — Sistema Homebrew</p>
-</footer>
-
+    <footer class="footer">
+      <div class="footerText">Tema escuro unificado, cards e botões mais bonitos. ✅</div>
+    </footer>
+  </main>
 </body>
 </html>

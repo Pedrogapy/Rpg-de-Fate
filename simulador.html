@@ -1,41 +1,180 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Simulador — Sebastian</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sebastian — Cartas & Técnicas</title>
   <link rel="stylesheet" href="simulador.css" />
-  <script defer src="simulador.js"></script>
 </head>
 <body>
-  <header>
-    <h1>🜏 Sebastian — Cartas & Técnicas</h1>
-    <p>Taumaturgia (Pressão + Runas) e Volumen Hydrargyrum</p>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="logo">F</div>
+        <div class="brandText">
+          <div class="brandTitle">RPG de Fate</div>
+          <div class="brandSub">Sebastian • Taumaturgia (Pressão + Runas) e Volumen Hydrargyrum</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a class="navLink" href="index.html">Início</a>
+        <a class="navLink isActive" href="simulador.html">Sebastian</a>
+        <a class="navLink" href="adao.html">Adão</a>
+      </nav>
+    </div>
   </header>
 
-  <main>
-    <section class="deck">
-      <h2>Deck</h2>
-      <p>Monte sequências de até 3 cartas e libere técnicas.</p>
-      <div class="deck-buttons">
-        <button id="novoTurno">Novo turno</button>
-        <button id="comprar1">Comprar 1</button>
-        <label>Limite: <input id="limite" type="number" value="7" min="3" max="12" /></label>
-        <button id="reset">Reset</button>
+  <main class="container">
+    <section class="hero">
+      <h1 class="heroTitle">Sebastian — Cartas & Técnicas</h1>
+      <p class="heroSub">
+        Monte mão, crie uma sequência (até 3) e escolha a técnica. Esta página organiza cartas, sequência e descreve o efeito — acerto/falha é do mestre.
+      </p>
+
+      <div class="heroMeta">
+        <span class="metaPill">Buster: 1 alvo</span>
+        <span class="metaPill">Quick: vários alvos</span>
+        <span class="metaPill">Arts: efeito / “temperar”</span>
+        <span class="metaPill">Sequência: até 3 cartas</span>
       </div>
-      <div id="mao" class="mao"></div>
     </section>
 
-    <section class="sequencia">
-      <h2>Sequência</h2>
-      <div id="slots" class="slots"></div>
-      <button id="limparSeq">Limpar sequência</button>
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2 class="panelTitle">Deck</h2>
+          <p class="panelHint">Monte sequências de até 3 cartas e libere técnicas.</p>
+        </div>
+        <div class="deckControls">
+          <button class="btn" id="fillHandBtn">Novo turno</button>
+          <button class="btn" id="drawOneBtn">Comprar 1</button>
+
+          <label class="field">
+            Limite:
+            <input class="input" id="handLimit" type="number" min="1" max="12" value="7" />
+          </label>
+
+          <button class="btn danger" id="resetBtn">Reset</button>
+
+          <label class="toggle">
+            <input type="checkbox" id="soundToggle" checked />
+            Som
+          </label>
+        </div>
+      </div>
+
+      <div class="deckRow">
+        <div class="deckAnim deck" id="deck">
+          <div class="flyingCard" id="flyingCard" aria-hidden="true">
+            <div class="cardType">—</div>
+            <div class="cardNote">Clique em “Comprar 1” ou “Novo turno”</div>
+          </div>
+          <div class="deckStack" aria-hidden="true"></div>
+        </div>
+
+        <div class="row">
+          <label class="field">
+            Modo:
+            <select class="select" id="modeSelect">
+              <option value="taumaturgia">Taumaturgia (Pressão + Runas)</option>
+              <option value="volumen">Volumen Hydrargyrum</option>
+            </select>
+          </label>
+
+          <span class="hint" id="modeHint"></span>
+        </div>
+      </div>
     </section>
 
-    <section class="tecnicas">
-      <h2>Técnicas</h2>
-      <div id="listaTecnicas"></div>
+    <section class="grid2">
+      <section class="panel">
+        <div class="panelHeader">
+          <div>
+            <h2 class="panelTitle">Mão</h2>
+            <p class="panelHint">Clique em cartas para montar a sequência (até 3). Clique de novo para remover.</p>
+          </div>
+          <div class="muted">Cartas na mão: <span id="handCount">0</span></div>
+        </div>
+
+        <div class="handGrid" id="handGrid"></div>
+
+        <div class="panelFoot hint">
+          Dica: Arts “tempera” técnicas. Quick tende a expandir alvos. Buster finaliza com dano em 1 alvo.
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panelHeader">
+          <div>
+            <h2 class="panelTitle">Sequência</h2>
+            <p class="panelHint">Até 3 cartas. A última define o “final” (Buster/Quick/Arts).</p>
+          </div>
+          <div class="row">
+            <button class="btn" id="clearSeqBtn">Limpar sequência</button>
+          </div>
+        </div>
+
+        <div class="seqSlots" id="seqSlots">
+          <div class="seqSlot" data-slot="0"><span class="slotLabel">1</span></div>
+          <div class="seqSlot" data-slot="1"><span class="slotLabel">2</span></div>
+          <div class="seqSlot" data-slot="2"><span class="slotLabel">3</span></div>
+        </div>
+
+        <div class="panelFoot hint">
+          <div id="actionsHint" class="muted"></div>
+        </div>
+      </section>
+    </section>
+
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2 class="panelTitle">Técnicas</h2>
+          <p class="panelHint">A lista abaixo muda conforme o modo e a sequência.</p>
+        </div>
+
+        <div class="row">
+          <label class="field">
+            Alvos (Quick):
+            <input class="input" id="targetsCount" type="number" min="2" max="8" value="3" />
+          </label>
+
+          <label class="field">
+            Arts:
+            <select class="select" id="artsMode">
+              <option value="efeito">Efeito / controle</option>
+              <option value="bencao">Benção / reforço</option>
+              <option value="marca">Marca / debuff</option>
+              <option value="dissipar">Dissipar / limpar</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="actionsList" id="actionsList"></div>
+    </section>
+
+    <section class="panel">
+      <div class="resultHeader">
+        <div>
+          <div class="resultTitle" id="resultTitle">Selecione uma técnica</div>
+          <div class="resultTags" id="resultTags"></div>
+        </div>
+        <div class="resultActions">
+          <button class="btn" id="rollDamageBtn" disabled>Rolar dano</button>
+          <button class="btn primary" id="executeBtn" disabled>Executar</button>
+        </div>
+      </div>
+
+      <div class="resultText" id="resultText">
+        Monte uma sequência e clique em uma técnica para ver o resultado aqui.
+      </div>
+
+      <div class="damageOut" id="damageOut"></div>
     </section>
   </main>
+
+  <script src="simulador.js"></script>
 </body>
 </html>

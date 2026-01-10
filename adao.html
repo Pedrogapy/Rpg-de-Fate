@@ -1,213 +1,189 @@
-<!-- adao.html -->
-<!doctype html>
-<html lang="pt-BR">
+<!DOCTYPE html>
+<html lang="pt-br">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Adão — Cartas e Ações</title>
-
-  <!-- Reusa o tema do simulador -->
-  <link rel="stylesheet" href="simulador.css" />
   <link rel="stylesheet" href="adao.css" />
 </head>
-
 <body>
   <header class="top">
     <div class="wrap">
       <div class="brand">
         <div class="logo">F</div>
-        <div>
-          <h1>Adão — Cartas e Ações</h1>
-          <p>Membro da Igreja • arma em corrente • técnicas por sequência de cartas (até 3)</p>
+        <div class="brandText">
+          <div class="brandTitle">RPG de Fate</div>
+          <div class="brandSub">Sistema de cartas • sequência até 3</div>
         </div>
       </div>
 
       <nav class="nav">
-        <a href="index.html">Voltar</a>
-        <a href="simulador.html">Sebastian</a>
-        <a href="#cartas">Cartas</a>
-        <a href="#acoes">Ações</a>
-        <a href="#resultado">Resultado</a>
+        <a class="navLink" href="index.html">Início</a>
+        <a class="navLink" href="simulador.html">Sebastian</a>
+        <a class="navLink isActive" href="adao.html">Adão</a>
       </nav>
     </div>
   </header>
 
-  <main class="wrap">
-    <section class="cardSection">
-      <div class="grid2">
-        <div class="panel">
-          <h3>Referências visuais</h3>
-
-          <div class="adaoRefGrid">
-            <div class="refCard">
-              <div class="refTitle">Adão</div>
-              <img class="refImg" src="assets/adao_ref.png" alt="Adão (referência)" />
-              <div class="muted refHint">Coloque sua imagem em <code>assets/adao_ref.png</code></div>
-            </div>
-
-            <div class="refCard">
-              <div class="refTitle">Arma</div>
-              <img class="refImg" src="assets/adao_weapon.png" alt="Arma em corrente" />
-              <div class="muted refHint">Coloque sua imagem em <code>assets/adao_weapon.png</code></div>
-            </div>
-          </div>
-
-          <div class="hint">
-            Esta página não decide acerto/falha. Ela organiza cartas, sequência e descreve a técnica.
-          </div>
-        </div>
-
-        <div class="panel">
-          <h3>Regras rápidas (do seu sistema)</h3>
-
-          <div class="ruleBox">
-            <div class="ruleHead">
-              <div class="ruleName">Buster</div>
-            </div>
-            <div class="ruleDesc">Foca 1 alvo. Quando a técnica termina em Buster, ela pode causar até <strong>1d10</strong> de dano (conforme o mestre).</div>
-          </div>
-
-          <div class="ruleBox" style="margin-top:10px">
-            <div class="ruleHead">
-              <div class="ruleName">Quick</div>
-            </div>
-            <div class="ruleDesc">Afeta vários alvos. Quando a técnica termina em Quick, ela pode causar até <strong>1d6</strong> de dano em <strong>cada alvo</strong> atingido.</div>
-          </div>
-
-          <div class="ruleBox" style="margin-top:10px">
-            <div class="ruleHead">
-              <div class="ruleName">Arts</div>
-            </div>
-            <div class="ruleDesc">É focada em efeito (controle, marca, bênção, dissipação, etc). Pode ser usada sozinha ou em sequência para “temperar” uma técnica.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="cartas" class="cardSection">
-      <h2>1) Mão de cartas (limite ajustável)</h2>
-      <p class="muted">
-        Você compra cartas até o limite. Depois seleciona até 3 cartas em sequência (início + reforços) e escolhe uma ação.
+  <main class="container">
+    <section class="hero">
+      <h1 class="heroTitle">Adão — Cartas e Ações</h1>
+      <p class="heroSub">
+        Membro da Igreja • arma em corrente • técnicas por sequência de cartas (até 3)
       </p>
 
-      <div class="panel">
-        <div class="adaoTopControls">
-          <div class="controls" style="margin:0">
-            <button id="fillHandBtn" class="btn primary">Encher mão</button>
-            <button id="drawOneBtn" class="btn">Comprar 1</button>
-            <button id="resetBtn" class="btn">Reset</button>
+      <div class="linkRow">
+        <a class="softLink" href="simulador.html">Voltar</a>
+        <span class="dot">•</span>
+        <a class="softLink" href="simulador.html">Sebastian</a>
+        <span class="dot">•</span>
+        <a class="softLink" href="adao.html">Cartas</a>
+        <span class="dot">•</span>
+        <a class="softLink" href="#acoes">Ações</a>
+        <span class="dot">•</span>
+        <a class="softLink" href="#resultado">Resultado</a>
+      </div>
+    </section>
 
-            <label class="toggle">
-              <input id="soundToggle" type="checkbox" checked />
-              <span>Som</span>
-            </label>
-          </div>
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2 class="panelTitle">Referências visuais</h2>
+          <p class="panelHint">Troque as imagens em <code>assets/</code> com os nomes indicados.</p>
+        </div>
+      </div>
 
-          <div class="limitBox">
-            <div class="limitLabel">Limite da mão</div>
-            <div class="limitRow">
-              <input id="handLimit" class="limitInput" type="number" min="1" max="12" step="1" value="7" />
-              <div class="muted">Padrão: 7</div>
-            </div>
+      <div class="refsGrid">
+        <div class="refCard">
+          <div class="refTitle">Adão</div>
+          <div class="refImgWrap">
+            <img class="refImg" src="assets/adao_ref.png" alt="Referência do Adão" />
           </div>
+          <div class="refFoot">Coloque sua imagem em <code>assets/adao_ref.png</code></div>
         </div>
 
-        <div class="grid2" style="margin-top:14px">
-          <div class="panel softPanel">
-            <div class="deckArea" style="padding:0">
-              <div id="deck" class="deck" aria-label="Baralho">
-                <div class="cardBack"></div>
-                <div class="cardBack"></div>
-                <div class="cardBack"></div>
-
-                <div id="flyingCard" class="flyingCard" aria-hidden="true">
-                  <div class="cardFace">
-                    <div class="cardTitle">Carta</div>
-                    <div class="cardType">???</div>
-                    <div class="cardMark">FATE</div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="hint" style="margin-top:10px">
-                Clique em uma carta da mão para colocar na sequência (até 3). Clique no slot para devolver.
-              </div>
-            </div>
+        <div class="refCard">
+          <div class="refTitle">Arma</div>
+          <div class="refImgWrap">
+            <img class="refImg" src="assets/adao_weapon.png" alt="Referência da arma" />
           </div>
+          <div class="refFoot">Coloque sua imagem em <code>assets/adao_weapon.png</code></div>
+        </div>
+      </div>
 
-          <div class="panel softPanel">
-            <div class="handHeader">
-              <div>
-                <h3 style="margin:0">Mão</h3>
-                <div class="muted">Cartas na mão: <strong id="handCount">0</strong></div>
-              </div>
+      <div class="note center muted">
+        Esta página não decide acerto/falha. Ela organiza cartas, sequência e descreve a técnica.
+      </div>
+    </section>
 
-              <div class="muted">Seleção: até 3 cartas</div>
-            </div>
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2 class="panelTitle">Regras rápidas (do seu sistema)</h2>
+        </div>
+      </div>
 
-            <div id="handGrid" class="handGrid" aria-label="Mão de cartas"></div>
-
-            <div class="seqWrap">
-              <div class="seqTitle">Sequência (início + reforços)</div>
-              <div id="seqSlots" class="seqSlots" aria-label="Sequência"></div>
-            </div>
-          </div>
+      <div class="rules">
+        <div class="ruleRow">
+          <div class="ruleTag buster">Buster</div>
+          <div class="ruleText">Foca 1 alvo. Quando a técnica termina em Buster, ela pode causar até <b>1d10</b> de dano (conforme o mestre).</div>
+        </div>
+        <div class="ruleRow">
+          <div class="ruleTag quick">Quick</div>
+          <div class="ruleText">Afeta vários alvos. Quando a técnica termina em Quick, ela pode causar até <b>1d6</b> de dano <b>em cada alvo</b> atingido.</div>
+        </div>
+        <div class="ruleRow">
+          <div class="ruleTag arts">Arts</div>
+          <div class="ruleText">É focada em efeito (controle, marca, bênção, dissipação, etc). Pode ser usada sozinha ou em sequência para “temperar” uma técnica.</div>
         </div>
       </div>
     </section>
 
-    <section id="acoes" class="diceSection">
-      <h2>2) Ações do Adão (dependem da sequência)</h2>
-      <p class="muted">
-        As ações abaixo ficam disponíveis quando sua sequência bate exatamente com o requisito. Se nenhuma ação “nomeada” bater, você ainda ganha uma técnica genérica coerente.
-      </p>
-
-      <div class="panel">
-        <div class="grid2">
-          <div class="panel softPanel">
-            <h3 style="margin-top:0">Ações disponíveis</h3>
-            <div id="actionsHint" class="muted">Monte uma sequência para ver ações compatíveis.</div>
-            <div id="actionsList" class="actionsList" aria-label="Lista de ações"></div>
-          </div>
-
-          <div id="resultado" class="panel softPanel">
-            <h3 style="margin-top:0">Resultado</h3>
-
-            <div class="spellBox">
-              <div class="spellHead">
-                <div id="resultTitle" class="spellTitle">—</div>
-                <div id="resultTags" class="spellTags muted">—</div>
-              </div>
-
-              <pre id="resultText" class="spellText">Monte uma sequência e selecione uma ação.</pre>
-
-              <div class="damageRow">
-                <div class="damageControls">
-                  <label class="muted">Alvos (para Quick):</label>
-                  <input id="targetsCount" class="limitInput" type="number" min="1" max="12" step="1" value="3" />
-                  <button id="rollDamageBtn" class="btn primary" disabled>Rolar dano</button>
-                  <button id="executeBtn" class="btn" disabled>Executar (consome cartas)</button>
-                </div>
-
-                <div class="damageOut">
-                  <div class="muted">Resultado:</div>
-                  <div id="damageOut" class="damageValue">—</div>
-                </div>
-              </div>
-
-              <div class="hint" style="margin-top:10px">
-                “Executar” só consome as cartas que já estão na sequência. Se quiser mudar, devolva do slot e selecione outras.
-              </div>
-            </div>
-
-          </div>
+    <section class="panel" id="acoes">
+      <div class="panelHeader">
+        <div>
+          <h2 class="panelTitle">1) Mão de cartas (limite ajustável)</h2>
+          <p class="panelHint">Você define o limite e puxa as cartas do turno. Cartas: Buster/Quick/Arts.</p>
         </div>
+
+        <div class="controls">
+          <button class="btn" id="fillHandBtn">Novo turno</button>
+          <button class="btn" id="drawOneBtn">Comprar 1 carta</button>
+
+          <label class="field">
+            Limite:
+            <input class="input" id="handLimit" type="number" min="1" max="12" value="7" />
+          </label>
+
+          <button class="btn danger" id="resetBtn">Reset</button>
+        </div>
+      </div>
+
+      <div class="handWrap">
+        <div class="handGrid" id="handGrid"></div>
+      </div>
+
+      <div class="panelFoot">
+        <div class="muted">Cartas na mão: <span id="handCount">0</span></div>
       </div>
     </section>
 
-    <footer class="footer muted">
-      Fate RPG — Página do Adão (cartas e ações)
-    </footer>
+    <section class="panel">
+      <div class="panelHeader">
+        <div>
+          <h2 class="panelTitle">2) Sequência (até 3 cartas)</h2>
+          <p class="panelHint">Clique nas cartas da mão para montar a sequência. Clique de novo para remover.</p>
+        </div>
+
+        <div class="controls">
+          <button class="btn" id="clearSeqBtn">Limpar sequência</button>
+        </div>
+      </div>
+
+      <div class="seqSlots" id="seqSlots">
+        <div class="seqSlot" data-slot="0"><span class="slotLabel">1</span></div>
+        <div class="seqSlot" data-slot="1"><span class="slotLabel">2</span></div>
+        <div class="seqSlot" data-slot="2"><span class="slotLabel">3</span></div>
+      </div>
+
+      <div class="panelFoot muted">
+        A última carta define se é dano em 1 alvo (Buster), vários (Quick) ou efeito (Arts).
+      </div>
+    </section>
+
+    <section class="panel" id="resultado">
+      <div class="panelHeader">
+        <div>
+          <h2 class="panelTitle">3) Ações do Adão (arma em corrente)</h2>
+          <p class="panelHint">As ações abaixo usam a sequência (até 3 cartas). Algumas mudam com “temperos” (Arts).</p>
+        </div>
+      </div>
+
+      <div class="actionsGrid" id="actionsGrid"></div>
+
+      <div class="resultPanel" id="resultPanel">
+        <div class="resultHeader">
+          <div class="resultTitle" id="resultTitle">Selecione uma ação</div>
+          <div class="resultTags" id="resultTags"></div>
+        </div>
+
+        <div class="resultText" id="resultText">
+          Monte uma sequência e clique em uma ação para ver o resultado aqui.
+        </div>
+
+        <div class="resultFooter">
+          <div class="muted">Alvos: <span id="targetsCount">—</span></div>
+
+          <div class="resultBtns">
+            <button class="btn" id="rollDamageBtn" disabled>Rolar dano</button>
+            <button class="btn primary" id="executeBtn" disabled>Executar</button>
+          </div>
+        </div>
+
+        <div class="damageOut" id="damageOut"></div>
+      </div>
+    </section>
+
   </main>
 
   <script src="adao.js"></script>

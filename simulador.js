@@ -126,14 +126,14 @@
   }
 
   function syncHandCount(){
-    handCount.textContent = String(state.hand.length);
-    handLimitEcho.textContent = String(state.handLimit);
+    if(handCount) handCount.textContent = String(state.hand.length);
+    if(handLimitEcho) handLimitEcho.textContent = String(state.handLimit);
   }
 
   function setHandLimit(n){
     const x = clamp(n|0, 1, 12);
     state.handLimit = x;
-    handLimitInput.value = String(x);
+    if(handLimitInput) handLimitInput.value = String(x);
     if(handLimitEcho) handLimitEcho.textContent = String(x);
 
     while(state.hand.length > state.handLimit) state.hand.pop();
@@ -181,6 +181,7 @@
   function countInSeq(key){ return state.seq.reduce((acc,c)=>acc+(c.key===key?1:0), 0); }
 
   function renderSeq(){
+    if(!seqSlots) return;
     seqSlots.innerHTML = "";
     for(let i=0;i<3;i++){
       const slot = document.createElement("div");
@@ -201,13 +202,13 @@
         slot.addEventListener("click", ()=>{
           playClick();
           if(state.hand.length >= state.handLimit){
-            resultText.textContent = "A mão está no limite. Aumente o limite ou execute/consuma cartas antes de devolver.";
+            if(resultText) resultText.textContent = "A mão está no limite. Aumente o limite ou execute/consuma cartas antes de devolver.";
             return;
           }
           const removed = state.seq.splice(i,1)[0];
           state.hand.push(removed);
           state.selectedActionId = null;
-          damageOut.textContent = "—";
+          if(damageOut) damageOut.textContent = "—";
           renderHand();
           syncHandCount();
           refreshAll();
@@ -232,7 +233,7 @@
       state.hand.push(state.seq.pop());
     }
     state.selectedActionId = null;
-    damageOut.textContent = "—";
+    if(damageOut) damageOut.textContent = "—";
     renderHand();
     syncHandCount();
     refreshAll();
@@ -242,6 +243,7 @@
   // Render Mão
   // =========================
   function renderHand(){
+    if(!handGrid) return;
     handGrid.innerHTML = "";
 
     state.hand.forEach((card, idx)=>{
@@ -263,7 +265,7 @@
         state.seq.push(picked);
 
         state.selectedActionId = null;
-        damageOut.textContent = "—";
+        if(damageOut) damageOut.textContent = "—";
 
         renderHand();
         syncHandCount();
@@ -279,18 +281,71 @@
   // =========================
   function seqKey(seq){ return seq.join("|"); }
 
+  // ------ Cura: combinações especiais (Taumaturgia) ------
+  const HEALING = {
+    "arts": {
+      name: "Runa de Remendo",
+      kind: "Cura",
+      tags: "cura • alvo único",
+      damageMode: "heal",
+      resultLine: "Você grava uma runa curta na pele/armadura do aliado; ela fecha feridas e estabiliza o ritmo do corpo por um instante.",
+      reach: "curta a média (à vista)",
+      targets: "1 aliado"
+    },
+    "arts|arts": {
+      name: "Sutura Rúnica",
+      kind: "Cura",
+      tags: "cura • reforço",
+      damageMode: "heal",
+      resultLine: "Você encadeia duas runas: a primeira limpa a instabilidade, a segunda sela e fortalece. Cura maior e mais consistente.",
+      reach: "curta a média (à vista)",
+      targets: "1 aliado"
+    },
+    "arts|quick": {
+      name: "Pulso de Socorro",
+      kind: "Cura",
+      tags: "cura • área",
+      damageMode: "healArea",
+      resultLine: "Uma runa dispara um pulso e se espalha pelo chão/vento como uma onda suave, alcançando aliados na zona.",
+      reach: "zona escolhida à vista",
+      targets: "múltiplos aliados na área"
+    },
+    "arts|arts|quick": {
+      name: "Círculo de Recuperação",
+      kind: "Cura",
+      tags: "cura • área • sustentação curta",
+      damageMode: "healArea",
+      resultLine: "Você fecha um círculo de runas e libera um pulso amplo. A área fica marcada por um instante, facilitando a recuperação de quem estiver dentro.",
+      reach: "zona escolhida à vista",
+      targets: "múltiplos aliados na área"
+    },
+    "quick|arts": {
+      name: "Neblina Revigorante",
+      kind: "Cura",
+      tags: "cura • área leve",
+      damageMode: "healArea",
+      resultLine: "Você espalha pressão controlada e, no fim, fixa uma runa que ‘puxa’ o corpo de volta ao eixo. Cura leve para quem estiver na área.",
+      reach: "zona escolhida à vista",
+      targets: "múltiplos aliados na área"
+    }
+  };
+
   function titleFromSeq(mode, seq){
+    const sk = seqKey(seq);
+
+    if(mode==="taumaturgia" && HEALING[sk]) return HEALING[sk].name;
+
+    // nomes especiais já existentes
+    if(mode==="volumen" && sk==="buster|buster|buster") return "Guilhotina de Hydrargyrum";
+    if(mode==="volumen" && sk==="quick|quick|quick") return "Tempestade de Estilhaços";
+    if(mode==="volumen" && sk==="arts|arts|arts") return "Catedral de Prata";
+
+    if(mode==="taumaturgia" && sk==="buster|buster|buster") return "Execução Barométrica";
+    if(mode==="taumaturgia" && sk==="quick|quick|quick") return "Maré de Choque";
+    if(mode==="taumaturgia" && sk==="arts|arts|arts") return "Circuito de Contenção";
+
     const first = seq[0];
     const last = seq[seq.length-1];
-
-    if(mode==="volumen" && seqKey(seq)==="buster|buster|buster") return "Guilhotina de Hydrargyrum";
-    if(mode==="volumen" && seqKey(seq)==="quick|quick|quick") return "Tempestade de Estilhaços";
-    if(mode==="volumen" && seqKey(seq)==="arts|arts|arts") return "Catedral de Prata";
-
-    if(mode==="taumaturgia" && seqKey(seq)==="buster|buster|buster") return "Execução Barométrica";
-    if(mode==="taumaturgia" && seqKey(seq)==="quick|quick|quick") return "Maré de Choque";
-    if(mode==="taumaturgia" && seqKey(seq)==="arts|arts|arts") return "Circuito de Contenção";
-
     const h = (seq.join("") + mode).split("").reduce((acc,ch)=>acc+ch.charCodeAt(0),0);
 
     const endBuster = ["Linha de Abate","Pressão Focada","Estocada Direta","Golpe de Ponto","Quebra-Guarda","Fecho Rápido"];
@@ -320,7 +375,7 @@
       return             `Passo ${n} (Buster): você condensa o Volumen em um golpe único (lança/martelo), buscando um ponto fraco em curto alcance.`;
     }else{
       if(key==="quick")  return `Passo ${n} (Quick): você libera uma onda de pressão para varrer, deslocar e “quebrar” postura em área.`;
-      if(key==="arts")   return `Passo ${n} (Arts): você grava/ativa uma runa simples, impondo uma regra local (trava, selo, interferência ou ajuste de terreno).`;
+      if(key==="arts")   return `Passo ${n} (Arts): você grava/ativa uma runa simples, impondo uma regra local (trava, selo, interferência, cura ou ajuste de terreno).`;
       return             `Passo ${n} (Buster): você descarrega pressão concentrada (gesto de tiro/pancada curta), mirando um único alvo.`;
     }
   }
@@ -331,7 +386,14 @@
     return { reach:"curta a média (à vista)", targets:"1 alvo, objeto ou zona pequena (efeito)" };
   }
 
-  function kindAndDamageMode(seq, last){
+  function kindAndDamageMode(mode, seq, last){
+    const sk = seqKey(seq);
+
+    if(mode==="taumaturgia" && HEALING[sk]){
+      const h = HEALING[sk];
+      return { kind: h.kind, dmgMode: h.damageMode, tags: h.tags, forced: h };
+    }
+
     const a = seq.filter(x=>x==="arts").length;
     const b = seq.filter(x=>x==="buster").length;
 
@@ -341,7 +403,7 @@
     return { kind:"Ataque", dmgMode:"buster", tags:`alvo único • ${seq.filter(x=>x==="buster").length} passo(s) Buster` };
   }
 
-  function damageLine(dmgMode, seq){
+  function valueLine(dmgMode, seq){
     const q = seq.filter(x=>x==="quick").length || 1;
     const a = seq.filter(x=>x==="arts").length || 1;
     const b = seq.filter(x=>x==="buster").length || 1;
@@ -349,13 +411,20 @@
     if(dmgMode==="shield") return "Absorção: 1d12 (escudo).";
     if(dmgMode==="buster") return `Dano: ${b}d10 (impacto em 1 alvo).`;
     if(dmgMode==="quick")  return `Dano: ${q}d6 em cada alvo atingido.`;
-    return `Arts: ${a}d8 se você escolher “Dano”; se escolher “Efeito”, não rola dano.`;
+    if(dmgMode==="heal")   return `Cura: ${a}d8 (em 1 aliado).`;
+    if(dmgMode==="healArea") return `Cura: ${a}d8 para cada aliado na área (configure a quantidade de alvos).`;
+    return `Arts: ${a}d8 se você escolher “Dano”; se escolher “Efeito”, não rola valor.`;
   }
 
   function resultTextFromAction(action){
     const seq = action.req.slice();
     const last = seq[seq.length-1];
-    const rt = reachAndTargets(last);
+
+    const special = (action.mode==="taumaturgia") ? HEALING[seqKey(seq)] : null;
+
+    const rt = special
+      ? { reach: special.reach, targets: special.targets }
+      : reachAndTargets(last);
 
     const lines = [];
     lines.push(`Conjuração: 1 ação`);
@@ -371,11 +440,13 @@
     lines.push(action.resultLine);
     lines.push("");
     lines.push("Valor:");
-    lines.push(damageLine(action.damageMode, seq));
+    lines.push(valueLine(action.damageMode, seq));
+
     if(action.damageMode==="shield"){
       lines.push("");
       lines.push("Obs.: este escudo absorve dano recebido; descreva como placas/fios prateados (Volumen) ou uma runa de contenção (Taumaturgia).");
     }
+
     return lines.join("\n");
   }
 
@@ -394,13 +465,15 @@
 
     for(const seq of seqs){
       const last = seq[seq.length-1];
-      const km = kindAndDamageMode(seq, last);
+      const km = kindAndDamageMode(mode, seq, last);
 
       const id = `${mode}:${seqKey(seq)}`;
       const name = titleFromSeq(mode, seq);
 
       let resultLine = "";
-      if(mode==="volumen"){
+      if(km.forced){
+        resultLine = km.forced.resultLine;
+      } else if(mode==="volumen"){
         if(km.dmgMode==="buster"){
           resultLine = "Você usa os passos anteriores para abrir brecha e termina condensando o mercúrio num golpe curto e pesado no alvo.";
         }else if(km.dmgMode==="quick"){
@@ -451,6 +524,7 @@
   // Render técnicas
   // =========================
   function renderActions(){
+    if(!actionsList || !actionsHint) return;
     actionsList.innerHTML = "";
     const s = seqKeys();
 
@@ -487,7 +561,7 @@
     div.addEventListener("click", ()=>{
       playClick();
       state.selectedActionId = action.id;
-      damageOut.textContent = "—";
+      if(damageOut) damageOut.textContent = "—";
       renderResult();
     });
 
@@ -501,7 +575,7 @@
   function resolveDamageMode(action){
     if(!action) return "none";
     if(action.damageMode === "artsMaybe"){
-      return (artsMode.value === "damage") ? "arts" : "none";
+      return (artsMode && artsMode.value === "damage") ? "arts" : "none";
     }
     return action.damageMode;
   }
@@ -510,41 +584,45 @@
     const s = seqKeys();
 
     if(s.length === 0){
-      resultTitle.textContent = "—";
-      resultTags.textContent = "—";
-      resultText.textContent = "Monte uma sequência e selecione a técnica.";
-      rollDamageBtn.disabled = true;
-      executeBtn.disabled = true;
-      damageOut.textContent = "—";
-      rollDamageBtn.textContent = "Rolar";
-      rollDamageBtn.dataset.mode = "none";
+      if(resultTitle) resultTitle.textContent = "—";
+      if(resultTags) resultTags.textContent = "—";
+      if(resultText) resultText.textContent = "Monte uma sequência e selecione a técnica.";
+      if(rollDamageBtn) rollDamageBtn.disabled = true;
+      if(executeBtn) executeBtn.disabled = true;
+      if(damageOut) damageOut.textContent = "—";
+      if(rollDamageBtn){
+        rollDamageBtn.textContent = "Rolar";
+        rollDamageBtn.dataset.mode = "none";
+      }
       return;
     }
 
     const action = currentActionForSeq(s);
     if(!action){
-      resultTitle.textContent = "—";
-      resultTags.textContent = "—";
-      resultText.textContent = "Técnica não encontrada.";
-      rollDamageBtn.disabled = true;
-      executeBtn.disabled = true;
+      if(resultTitle) resultTitle.textContent = "—";
+      if(resultTags) resultTags.textContent = "—";
+      if(resultText) resultText.textContent = "Técnica não encontrada.";
+      if(rollDamageBtn) rollDamageBtn.disabled = true;
+      if(executeBtn) executeBtn.disabled = true;
       return;
     }
 
-    resultTitle.textContent = action.name;
-    resultTags.textContent =
+    if(resultTitle) resultTitle.textContent = action.name;
+    if(resultTags) resultTags.textContent =
       `${state.mode === "volumen" ? "Volumen" : "Taumaturgia"} • ${action.kind} • ${action.tags} • Sequência: ${prettySeq(action.req)}`;
 
-    resultText.textContent = action.text();
+    if(resultText) resultText.textContent = action.text();
 
     const dmgMode = resolveDamageMode(action);
-    rollDamageBtn.dataset.mode = dmgMode;
-    rollDamageBtn.disabled = (dmgMode === "none");
-    executeBtn.disabled = false;
-
-    rollDamageBtn.textContent =
-      (dmgMode === "shield") ? "Rolar escudo" :
-      (dmgMode === "none") ? "Rolar" : "Rolar valor";
+    if(rollDamageBtn){
+      rollDamageBtn.dataset.mode = dmgMode;
+      rollDamageBtn.disabled = (dmgMode === "none");
+      rollDamageBtn.textContent =
+        (dmgMode === "shield") ? "Rolar escudo" :
+        (dmgMode === "heal" || dmgMode === "healArea") ? "Rolar cura" :
+        (dmgMode === "none") ? "Rolar" : "Rolar valor";
+    }
+    if(executeBtn) executeBtn.disabled = false;
   }
 
   function refreshAll(){
@@ -555,7 +633,7 @@
       modeHint.textContent =
         (state.mode === "volumen")
           ? "Volumen: mercúrio versátil (ataque, defesa, detecção, controle)."
-          : "Taumaturgia: pressão + runas (golpes curtos, selos, interferência, terreno).";
+          : "Taumaturgia: pressão + runas (golpes curtos, selos, cura, interferência, terreno).";
     }
   }
 
@@ -563,7 +641,7 @@
   // Rolagem
   // =========================
   function rollValue(){
-    const mode = rollDamageBtn.dataset.mode || "none";
+    const mode = (rollDamageBtn && rollDamageBtn.dataset.mode) ? rollDamageBtn.dataset.mode : "none";
     if(mode === "none") return;
 
     playRoll();
@@ -574,7 +652,7 @@
 
     if(mode === "shield"){
       const v = randInt(1,12);
-      damageOut.textContent = `1d12 (escudo) = ${v}`;
+      if(damageOut) damageOut.textContent = `1d12 (escudo) = ${v}`;
       return;
     }
 
@@ -586,11 +664,11 @@
         rolls.push(r);
         sum += r;
       }
-      damageOut.textContent = `${bCount}d10 = [${rolls.join(", ")}] (total ${sum})`;
+      if(damageOut) damageOut.textContent = `${bCount}d10 = [${rolls.join(", ")}] (total ${sum})`;
       return;
     }
 
-    if(mode === "arts"){
+    if(mode === "arts" || mode === "heal" || mode === "healArea"){
       const rolls = [];
       let sum = 0;
       for(let i=0;i<aCount;i++){
@@ -598,12 +676,26 @@
         rolls.push(r);
         sum += r;
       }
-      damageOut.textContent = `${aCount}d8 = [${rolls.join(", ")}] (total ${sum})`;
+
+      if(mode === "healArea"){
+        const n = clamp(parseInt(targetsCount && targetsCount.value,10) || 1, 1, 12);
+        const per = [];
+        let grand = 0;
+        for(let t=0;t<n;t++){
+          grand += sum;
+          per.push(aCount === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
+        }
+        if(damageOut) damageOut.textContent = `${n} aliado(s) × ${aCount}d8 = [${per.join(" | ")}] (total ${grand})`;
+      } else if(mode === "heal"){
+        if(damageOut) damageOut.textContent = `${aCount}d8 (cura) = [${rolls.join(", ")}] (total ${sum})`;
+      } else {
+        if(damageOut) damageOut.textContent = `${aCount}d8 = [${rolls.join(", ")}] (total ${sum})`;
+      }
       return;
     }
 
     if(mode === "quick"){
-      const n = clamp(parseInt(targetsCount.value,10) || 1, 1, 12);
+      const n = clamp(parseInt(targetsCount && targetsCount.value,10) || 1, 1, 12);
       const perTarget = [];
       let grand = 0;
 
@@ -619,7 +711,7 @@
         perTarget.push(qCount === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
       }
 
-      damageOut.textContent = `${n} alvo(s) × ${qCount}d6 = [${perTarget.join(" | ")}] (total ${grand})`;
+      if(damageOut) damageOut.textContent = `${n} alvo(s) × ${qCount}d6 = [${perTarget.join(" | ")}] (total ${grand})`;
       return;
     }
   }
@@ -634,15 +726,17 @@
     state.seq = [];
     state.selectedActionId = null;
 
-    damageOut.textContent = "—";
-    resultTitle.textContent = "—";
-    resultTags.textContent = "—";
-    resultText.textContent = "Técnica executada. Monte uma nova sequência.";
+    if(damageOut) damageOut.textContent = "—";
+    if(resultTitle) resultTitle.textContent = "—";
+    if(resultTags) resultTags.textContent = "—";
+    if(resultText) resultText.textContent = "Técnica executada. Monte uma nova sequência.";
 
-    rollDamageBtn.disabled = true;
-    executeBtn.disabled = true;
-    rollDamageBtn.dataset.mode = "none";
-    rollDamageBtn.textContent = "Rolar";
+    if(rollDamageBtn){
+      rollDamageBtn.disabled = true;
+      rollDamageBtn.dataset.mode = "none";
+      rollDamageBtn.textContent = "Rolar";
+    }
+    if(executeBtn) executeBtn.disabled = true;
 
     renderHand();
     syncHandCount();
@@ -657,15 +751,17 @@
     state.seq = [];
     state.selectedActionId = null;
 
-    damageOut.textContent = "—";
-    resultTitle.textContent = "—";
-    resultTags.textContent = "—";
-    resultText.textContent = "Monte uma sequência e selecione a técnica.";
+    if(damageOut) damageOut.textContent = "—";
+    if(resultTitle) resultTitle.textContent = "—";
+    if(resultTags) resultTags.textContent = "—";
+    if(resultText) resultText.textContent = "Monte uma sequência e selecione a técnica.";
 
-    rollDamageBtn.disabled = true;
-    executeBtn.disabled = true;
-    rollDamageBtn.dataset.mode = "none";
-    rollDamageBtn.textContent = "Rolar";
+    if(rollDamageBtn){
+      rollDamageBtn.disabled = true;
+      rollDamageBtn.dataset.mode = "none";
+      rollDamageBtn.textContent = "Rolar";
+    }
+    if(executeBtn) executeBtn.disabled = true;
 
     renderHand();
     renderSeq();
@@ -676,38 +772,38 @@
   // =========================
   // Eventos
   // =========================
-  fillHandBtn.addEventListener("click", ()=>{ playClick(); fillHand(); });
-  drawOneBtn.addEventListener("click", ()=>{ playClick(); drawOne(); });
-  resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
-  clearSeqBtn.addEventListener("click", ()=> clearSeq());
+  if(fillHandBtn) fillHandBtn.addEventListener("click", ()=>{ playClick(); fillHand(); });
+  if(drawOneBtn) drawOneBtn.addEventListener("click", ()=>{ playClick(); drawOne(); });
+  if(resetBtn) resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
+  if(clearSeqBtn) clearSeqBtn.addEventListener("click", ()=> clearSeq());
 
-  handLimitInput.addEventListener("change", ()=> setHandLimit(parseInt(handLimitInput.value,10) || 7));
+  if(handLimitInput) handLimitInput.addEventListener("change", ()=> setHandLimit(parseInt(handLimitInput.value,10) || 7));
 
-  modeSelect.addEventListener("change", ()=>{
+  if(modeSelect) modeSelect.addEventListener("change", ()=>{
     playClick();
     state.mode = modeSelect.value || "taumaturgia";
     state.selectedActionId = null;
-    damageOut.textContent = "—";
+    if(damageOut) damageOut.textContent = "—";
     refreshAll();
   });
 
-  artsMode.addEventListener("change", ()=>{
-    damageOut.textContent = "—";
+  if(artsMode) artsMode.addEventListener("change", ()=>{
+    if(damageOut) damageOut.textContent = "—";
     renderResult();
   });
 
-  rollDamageBtn.addEventListener("click", ()=> rollValue());
-  executeBtn.addEventListener("click", ()=> executeAction());
+  if(rollDamageBtn) rollDamageBtn.addEventListener("click", ()=> rollValue());
+  if(executeBtn) executeBtn.addEventListener("click", ()=> executeAction());
 
   // =========================
   // Init
   // =========================
   (function init(){
-    state.mode = modeSelect.value || "taumaturgia";
-    setHandLimit(parseInt(handLimitInput.value,10) || 7);
+    state.mode = (modeSelect && modeSelect.value) ? modeSelect.value : "taumaturgia";
+    setHandLimit(parseInt(handLimitInput && handLimitInput.value,10) || 7);
     resetAll();
     fillHand();
     refreshAll();
   })();
 
-})(); 
+})();

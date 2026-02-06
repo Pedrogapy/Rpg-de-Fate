@@ -273,6 +273,8 @@ a:hover{opacity:.9}
 .resultTitle{font-weight:1000; font-size:16px}
 .resultTags{color:var(--muted); font-size:12px; margin-top:3px}
 .resultTools{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
+.pill.wide{flex:1 1 260px; min-width:260px}
+.pill.wide select{width:100%}
 
 .resultText{
   margin:0;
@@ -300,11 +302,6 @@ a:hover{opacity:.9}
   padding:10px 12px;
   min-width:220px;
 }
-.damageBox.mode-quick{ border-color: rgba(53,211,165,.35); box-shadow: 0 0 0 1px rgba(53,211,165,.08) inset; }
-.damageBox.mode-buster{ border-color: rgba(255,122,122,.35); box-shadow: 0 0 0 1px rgba(255,122,122,.08) inset; }
-.damageBox.mode-arts{ border-color: rgba(122,167,255,.35); box-shadow: 0 0 0 1px rgba(122,167,255,.08) inset; }
-.damageBox.mode-heal{ border-color: rgba(122,167,255,.45); box-shadow: 0 0 0 1px rgba(122,167,255,.10) inset; }
-.damageBox.mode-shield{ border-color: rgba(233,238,247,.20); box-shadow: 0 0 0 1px rgba(233,238,247,.06) inset; }
 .damageLabel{color:var(--muted); font-size:12px; font-weight:900}
 .damageValue{font-weight:1000; margin-top:4px}
 

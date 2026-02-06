@@ -140,8 +140,13 @@
           </div>
 
           <div class="resultTools">
+            <label class="pill small wide">
+              <span>Magia</span>
+              <select id="magicSelect"></select>
+            </label>
+
             <label class="pill small">
-              <span id="targetsLabel">Quick alvos</span>
+              <span>Quick alvos</span>
               <input id="targetsCount" type="number" min="1" max="12" value="2" />
             </label>
 
@@ -163,7 +168,7 @@
             <button id="executeBtn" class="btn ghost" disabled>Executar (consome cartas)</button>
           </div>
 
-          <div id="damageBox" class="damageBox">
+          <div class="damageBox">
             <div class="damageLabel">Resultado</div>
             <div id="damageOut" class="damageValue">—</div>
           </div>

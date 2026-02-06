@@ -64,8 +64,6 @@
   const rollDamageBtn = $("rollDamageBtn");
   const executeBtn = $("executeBtn");
   const damageOut = $("damageOut");
-  const damageBox = $("damageBox");
-  const targetsLabel = $("targetsLabel");
 
   // =========================
   // Som (WebAudio simples)
@@ -283,11 +281,7 @@
   // =========================
   function seqKey(seq){ return seq.join("|"); }
 
-  // ------ Cura & Suporte: combinações especiais (Taumaturgia) ------
-  // Regras-alvo do Sebastian:
-  // - Arts (sozinho) → cura em alvo único
-  // - Arts + Quick (em qualquer ordem) → cura em área
-  // - Arts + Arts → proteção/escudo (ver TAU_SPECIALS)
+  // ------ Cura: combinações especiais (Taumaturgia) ------
   const HEALING = {
     "arts": {
       name: "Runa de Remendo",
@@ -298,14 +292,30 @@
       reach: "curta a média (à vista)",
       targets: "1 aliado"
     },
-
-    // Arts + Quick (área) — ordem importa na narrativa, mas o efeito é o mesmo (área).
+    "arts|arts": {
+      name: "Sutura Rúnica",
+      kind: "Cura",
+      tags: "cura • reforço",
+      damageMode: "heal",
+      resultLine: "Você encadeia duas runas: a primeira limpa a instabilidade, a segunda sela e fortalece. Cura maior e mais consistente.",
+      reach: "curta a média (à vista)",
+      targets: "1 aliado"
+    },
     "arts|quick": {
       name: "Pulso de Socorro",
       kind: "Cura",
       tags: "cura • área",
       damageMode: "healArea",
       resultLine: "Uma runa dispara um pulso e se espalha pelo chão/vento como uma onda suave, alcançando aliados na zona.",
+      reach: "zona escolhida à vista",
+      targets: "múltiplos aliados na área"
+    },
+    "arts|arts|quick": {
+      name: "Círculo de Recuperação",
+      kind: "Cura",
+      tags: "cura • área • sustentação curta",
+      damageMode: "healArea",
+      resultLine: "Você fecha um círculo de runas e libera um pulso amplo. A área fica marcada por um instante, facilitando a recuperação de quem estiver dentro.",
       reach: "zona escolhida à vista",
       targets: "múltiplos aliados na área"
     },
@@ -317,137 +327,13 @@
       resultLine: "Você espalha pressão controlada e, no fim, fixa uma runa que ‘puxa’ o corpo de volta ao eixo. Cura leve para quem estiver na área.",
       reach: "zona escolhida à vista",
       targets: "múltiplos aliados na área"
-    },
-
-    // Triplas focadas em cura de área (mais consistente)
-    "arts|arts|quick": {
-      name: "Círculo de Recuperação",
-      kind: "Cura",
-      tags: "cura • área • sustentação curta",
-      damageMode: "healArea",
-      resultLine: "Você fecha um círculo de runas e libera um pulso amplo. A área fica marcada por um instante, facilitando a recuperação de quem estiver dentro.",
-      reach: "zona escolhida à vista",
-      targets: "múltiplos aliados na área"
-    },
-    "arts|quick|arts": {
-      name: "Círculo de Recuperação",
-      kind: "Cura",
-      tags: "cura • área • sustentação curta",
-      damageMode: "healArea",
-      resultLine: "Você abre o pulso (Arts+Quick) e sela com uma segunda runa, tornando a cura de área mais estável e previsível.",
-      reach: "zona escolhida à vista",
-      targets: "múltiplos aliados na área"
-    },
-    "quick|arts|arts": {
-      name: "Círculo de Recuperação",
-      kind: "Cura",
-      tags: "cura • área • sustentação curta",
-      damageMode: "healArea",
-      resultLine: "Você prepara a zona com pressão (Quick) e encadeia duas runas para selar a recuperação em quem estiver dentro.",
-      reach: "zona escolhida à vista",
-      targets: "múltiplos aliados na área"
     }
   };
 
-  // ------ Técnicas especiais (Taumaturgia) ------
-  const TAU_SPECIALS = {
-    // Arts + Arts → escudo (single)
-    "arts|arts": {
-      name: "Sutura de Contenção",
-      kind: "Defesa",
-      tags: "escudo • alvo único",
-      damageMode: "shield",
-      resultLine: "Duas runas se fecham como um ponto cirúrgico no ar/na armadura. Por alguns instantes, o impacto recebido é absorvido por uma ‘costura’ de pressão.",
-      reach: "curta a média (à vista)",
-      targets: "1 aliado (ou você)"
-    },
-
-    // Triple Arts → escudo em área pequena (usa contador de alvos)
-    "arts|arts|arts": {
-      name: "Circuito de Contenção",
-      kind: "Defesa",
-      tags: "escudo • área pequena",
-      damageMode: "shieldArea",
-      resultLine: "Você fecha um circuito completo de runas. Uma película de pressão percorre a área e vira um escudo coletivo por um instante.",
-      reach: "zona escolhida à vista",
-      targets: "múltiplos aliados na área"
-    },
-
-    // Selos / interferência mais claros (sem rolagem, por padrão)
-    "arts|buster": {
-      name: "Selo de Ruptura",
-      kind: "Ataque",
-      tags: "alvo único • marca",
-      damageMode: "buster",
-      resultLine: "Você marca o alvo com uma runa curta e termina com um golpe de pressão. A marca ‘puxa’ a guarda para o lado errado, abrindo brecha para o impacto.",
-      reach: "curta a média (à vista)",
-      targets: "1 alvo"
-    },
-    "buster|arts": {
-      name: "Travamento Barométrico",
-      kind: "Efeito/Controle",
-      tags: "selo • contenção",
-      damageMode: "artsMaybe",
-      resultLine: "Após o impacto inicial, você grava uma runa que ‘trava’ o ritmo do alvo por um instante (reduz deslocamento, impede uma ação específica ou força reposicionamento).",
-      reach: "curta a média (à vista)",
-      targets: "1 alvo"
-    },
-    "quick|arts|quick": {
-      name: "Interferência em Campo",
-      kind: "Efeito/Controle",
-      tags: "interferência • área",
-      damageMode: "none",
-      resultLine: "Você ocupa a zona com pressão (Quick), instala uma runa de ruído (Arts) e finaliza varrendo a área. A interferência atrapalha conjurações, mira ou coordenação por um momento.",
-      reach: "zona escolhida à vista",
-      targets: "múltiplos alvos na área"
-    },
-    "arts|quick|quick": {
-      name: "Vórtice de Salvamento",
-      kind: "Cura",
-      tags: "cura • área • reposicionamento",
-      damageMode: "healArea",
-      resultLine: "Uma runa puxa aliados para ‘o lado certo’ enquanto a pressão varre a zona. Cura em área e, narrativamente, ajuda a tirar gente de linha de tiro.",
-      reach: "zona escolhida à vista",
-      targets: "múltiplos aliados na área"
-    }
-  };
-
-  // ------ Técnicas especiais (Volumen) ------
-  const VOL_SPECIALS = {
-    "arts|arts|arts": {
-      name: "Catedral de Prata",
-      kind: "Defesa/Controle",
-      tags: "zona • cobertura",
-      damageMode: "none",
-      resultLine: "Você ergue uma estrutura de mercúrio em placas e arcos, criando cobertura, bloqueio de linha e controle de espaço por um curto período.",
-      reach: "zona escolhida à vista",
-      targets: "zona/terreno"
-    },
-    "arts|arts": {
-      name: "Lâmina-Guarda",
-      kind: "Defesa",
-      tags: "escudo • alvo único",
-      damageMode: "shield",
-      resultLine: "O mercúrio forma placas e fios que absorvem impacto e redirecionam estilhaços por um instante.",
-      reach: "curta a média (à vista)",
-      targets: "1 aliado (ou você)"
-    }
-  };
-
-
-  
-  function specialFor(mode, seq){
-    const sk = seqKey(seq);
-    if(mode === "taumaturgia") return HEALING[sk] || TAU_SPECIALS[sk] || null;
-    if(mode === "volumen") return VOL_SPECIALS[sk] || null;
-    return null;
-  }
-
-function titleFromSeq(mode, seq){
+  function titleFromSeq(mode, seq){
     const sk = seqKey(seq);
 
-    const sp = specialFor(mode, seq);
-    if(sp && sp.name) return sp.name;
+    if(mode==="taumaturgia" && HEALING[sk]) return HEALING[sk].name;
 
     // nomes especiais já existentes
     if(mode==="volumen" && sk==="buster|buster|buster") return "Guilhotina de Hydrargyrum";
@@ -503,9 +389,9 @@ function titleFromSeq(mode, seq){
   function kindAndDamageMode(mode, seq, last){
     const sk = seqKey(seq);
 
-    const sp = specialFor(mode, seq);
-    if(sp){
-      return { kind: sp.kind || "Técnica", dmgMode: sp.damageMode || "none", tags: sp.tags || "—", forced: sp };
+    if(mode==="taumaturgia" && HEALING[sk]){
+      const h = HEALING[sk];
+      return { kind: h.kind, dmgMode: h.damageMode, tags: h.tags, forced: h };
     }
 
     const a = seq.filter(x=>x==="arts").length;
@@ -522,8 +408,7 @@ function titleFromSeq(mode, seq){
     const a = seq.filter(x=>x==="arts").length || 1;
     const b = seq.filter(x=>x==="buster").length || 1;
 
-    if(dmgMode==="shield") return `Absorção: ${a}d8 (escudo).`;
-    if(dmgMode==="shieldArea") return `Absorção: ${a}d6 para cada aliado na área (use o contador).`;
+    if(dmgMode==="shield") return "Absorção: 1d12 (escudo).";
     if(dmgMode==="buster") return `Dano: ${b}d10 (impacto em 1 alvo).`;
     if(dmgMode==="quick")  return `Dano: ${q}d6 em cada alvo atingido.`;
     if(dmgMode==="heal")   return `Cura: ${a}d8 (em 1 aliado).`;
@@ -535,7 +420,7 @@ function titleFromSeq(mode, seq){
     const seq = action.req.slice();
     const last = seq[seq.length-1];
 
-    const special = specialFor(action.mode, seq);
+    const special = (action.mode==="taumaturgia") ? HEALING[seqKey(seq)] : null;
 
     const rt = special
       ? { reach: special.reach, targets: special.targets }
@@ -687,24 +572,6 @@ function titleFromSeq(mode, seq){
   // =========================
   // Resultado
   // =========================
-  function setOutcomeMode(dmgMode){
-    if(!damageBox) return;
-    damageBox.classList.remove("mode-quick","mode-buster","mode-arts","mode-heal","mode-shield");
-    if(dmgMode==="quick") damageBox.classList.add("mode-quick");
-    else if(dmgMode==="buster") damageBox.classList.add("mode-buster");
-    else if(dmgMode==="arts") damageBox.classList.add("mode-arts");
-    else if(dmgMode==="heal" || dmgMode==="healArea") damageBox.classList.add("mode-heal");
-    else if(dmgMode==="shield" || dmgMode==="shieldArea") damageBox.classList.add("mode-shield");
-  }
-
-  function setTargetsLabelFor(dmgMode){
-    if(!targetsLabel) return;
-    if(dmgMode==="quick") targetsLabel.textContent = "Quick alvos";
-    else if(dmgMode==="healArea") targetsLabel.textContent = "Cura alvos";
-    else if(dmgMode==="shieldArea") targetsLabel.textContent = "Escudo alvos";
-    else targetsLabel.textContent = "Alvos na área";
-  }
-
   function resolveDamageMode(action){
     if(!action) return "none";
     if(action.damageMode === "artsMaybe"){
@@ -727,8 +594,6 @@ function titleFromSeq(mode, seq){
         rollDamageBtn.textContent = "Rolar";
         rollDamageBtn.dataset.mode = "none";
       }
-      setOutcomeMode("none");
-      setTargetsLabelFor("none");
       return;
     }
 
@@ -749,13 +614,11 @@ function titleFromSeq(mode, seq){
     if(resultText) resultText.textContent = action.text();
 
     const dmgMode = resolveDamageMode(action);
-    setOutcomeMode(dmgMode);
-    setTargetsLabelFor(dmgMode);
     if(rollDamageBtn){
       rollDamageBtn.dataset.mode = dmgMode;
       rollDamageBtn.disabled = (dmgMode === "none");
       rollDamageBtn.textContent =
-        (dmgMode === "shield" || dmgMode === "shieldArea") ? "Rolar escudo" :
+        (dmgMode === "shield") ? "Rolar escudo" :
         (dmgMode === "heal" || dmgMode === "healArea") ? "Rolar cura" :
         (dmgMode === "none") ? "Rolar" : "Rolar valor";
     }
@@ -788,33 +651,8 @@ function titleFromSeq(mode, seq){
     const aCount = Math.max(1, countInSeq("arts"));
 
     if(mode === "shield"){
-      const rolls = [];
-      let sum = 0;
-      for(let i=0;i<aCount;i++){
-        const r = randInt(1,8);
-        rolls.push(r);
-        sum += r;
-      }
-      if(damageOut) damageOut.textContent = `${aCount}d8 (escudo) = [${rolls.join(", ")}] (total ${sum})`;
-      return;
-    }
-
-    if(mode === "shieldArea"){
-      const rolls = [];
-      let sum = 0;
-      for(let i=0;i<aCount;i++){
-        const r = randInt(1,6);
-        rolls.push(r);
-        sum += r;
-      }
-      const n = clamp(parseInt(targetsCount && targetsCount.value,10) || 1, 1, 12);
-      const per = [];
-      let grand = 0;
-      for(let t=0;t<n;t++){
-        grand += sum;
-        per.push(aCount === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
-      }
-      if(damageOut) damageOut.textContent = `${n} aliado(s) × ${aCount}d6 (escudo) = [${per.join(" | ")}] (total ${grand})`;
+      const v = randInt(1,12);
+      if(damageOut) damageOut.textContent = `1d12 (escudo) = ${v}`;
       return;
     }
 
@@ -889,8 +727,6 @@ function titleFromSeq(mode, seq){
     state.selectedActionId = null;
 
     if(damageOut) damageOut.textContent = "—";
-    setOutcomeMode("none");
-    setTargetsLabelFor("none");
     if(resultTitle) resultTitle.textContent = "—";
     if(resultTags) resultTags.textContent = "—";
     if(resultText) resultText.textContent = "Técnica executada. Monte uma nova sequência.";
@@ -916,8 +752,6 @@ function titleFromSeq(mode, seq){
     state.selectedActionId = null;
 
     if(damageOut) damageOut.textContent = "—";
-    setOutcomeMode("none");
-    setTargetsLabelFor("none");
     if(resultTitle) resultTitle.textContent = "—";
     if(resultTags) resultTags.textContent = "—";
     if(resultText) resultText.textContent = "Monte uma sequência e selecione a técnica.";

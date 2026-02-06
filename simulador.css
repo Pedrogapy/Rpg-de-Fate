@@ -273,8 +273,6 @@ a:hover{opacity:.9}
 .resultTitle{font-weight:1000; font-size:16px}
 .resultTags{color:var(--muted); font-size:12px; margin-top:3px}
 .resultTools{display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end}
-.pill.wide{flex:1 1 260px; min-width:260px}
-.pill.wide select{width:100%}
 
 .resultText{
   margin:0;

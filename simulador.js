@@ -27,6 +27,8 @@
     hand: [],
     seq: [],
     selectedActionId: null,
+    // Taumaturgia: magia escolhida por sequência (key = "quick|arts|buster")
+    selectedSpellBySeq: Object.create(null),
     handLimit: 7,
     mode: "taumaturgia",
   };
@@ -61,6 +63,7 @@
 
   const targetsCount = $("targetsCount");
   const artsMode = $("artsMode");
+  const magicSelect = $("magicSelect");
   const rollDamageBtn = $("rollDamageBtn");
   const executeBtn = $("executeBtn");
   const damageOut = $("damageOut");
@@ -281,6 +284,340 @@
   // =========================
   function seqKey(seq){ return seq.join("|"); }
 
+  // =========================
+  // Taumaturgia — Biblioteca de Magias (seletor por sequência)
+  // - A primeira carta define a "natureza".
+  // - A segunda e a terceira modificam / especializam.
+  // - Sem raridades que "anulam servos". Contra-magia até média.
+  // - CD sempre 12–16.
+  // =========================
+  const ELEMENTS = ["Fogo","Gelo","Raio","Vento","Terra","Água","Luz","Sombra","Neutro"]; 
+
+  function hashStr(s){
+    let h = 2166136261;
+    for(let i=0;i<s.length;i++){
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0);
+  }
+
+  function pick(arr, seed){ return arr[seed % arr.length]; }
+  function cdFrom(seed){ return 12 + (seed % 5); } // 12–16
+
+  function makeSpell(id, cfg){
+    return Object.assign({
+      id,
+      // name, kind, type, tags, element, rune, support, cd, rollMode, reach, targets, how, result
+    }, cfg);
+  }
+
+  function defaultReachTargetsByMain(main){
+    if(main === "quick") return { reach: "zona escolhida à vista", targets: "múltiplos alvos na área" };
+    if(main === "buster") return { reach: "curta a média (à vista)", targets: "1 alvo" };
+    return { reach: "curta a média (à vista)", targets: "1 alvo, objeto ou zona pequena" };
+  }
+
+  function tagsLine(spell){
+    const parts = [];
+    if(spell.type) parts.push(spell.type);
+    if(spell.element && spell.element !== "Neutro") parts.push(`elemento: ${spell.element}`);
+    if(spell.rune) parts.push("runa");
+    if(spell.support) parts.push("suporte");
+    if(spell.cd) parts.push(`CD ${spell.cd}`);
+    return parts.join(" • ");
+  }
+
+  function buildSpellText(spell, seq){
+    const main = seq[0];
+    const rt = { ...(defaultReachTargetsByMain(main)), ...(spell.reach?{reach:spell.reach}:{}), ...(spell.targets?{targets:spell.targets}:{}) };
+
+    const lines = [];
+    lines.push(`Conjuração: 1 ação`);
+    lines.push(`Modo: Taumaturgia (Pressão + Runas)`);
+    lines.push(`Sequência: ${prettySeq(seq)}`);
+    lines.push(`Alcance: ${rt.reach}`);
+    lines.push(`Alvos: ${rt.targets}`);
+    lines.push(`Cooldown: ${spell.cd}`);
+    lines.push("");
+    lines.push("Como a magia acontece:");
+    (spell.how || []).forEach(x=>lines.push(x));
+    lines.push("");
+    lines.push("Resultado (o que isso faz na cena):");
+    lines.push(spell.result || "—");
+    lines.push("");
+    lines.push("Valor:");
+    lines.push(valueLine(spell.rollMode, seq));
+    return lines.join("\n");
+  }
+
+  // Gera 8–12 magias por sequência (modelo C)
+  function buildTaumaturgySpellsForSeq(seq){
+    const sk = seqKey(seq);
+    const seed0 = hashStr(sk);
+    const main = seq[0];
+    const hasArts = seq.includes("arts");
+    const hasQuick = seq.includes("quick");
+    const hasBuster = seq.includes("buster");
+
+    // Elemento base determinístico por sequência
+    const elemA = pick(ELEMENTS, seed0);
+    const elemB = pick(ELEMENTS, seed0 + 7);
+    const elemC = pick(ELEMENTS, seed0 + 13);
+
+    const cdA = cdFrom(seed0);
+    const cdB = cdFrom(seed0 + 3);
+    const cdC = cdFrom(seed0 + 9);
+
+    const list = [];
+
+    // Helpers de narrativa
+    const runeLine = (txt)=>`Você traça uma runa curta (${txt}) e a ancora com pressão controlada.`;
+    const pressLine = (txt)=>`Você comprime o ar/éter ao redor (${txt}) e libera num pulso preciso.`;
+    const weaveLine = (txt)=>`Você encadeia a pressão em passos curtos e sincroniza a runa no final (${txt}).`;
+
+    if(main === "buster"){
+      // BUSTER = dano single (com possíveis efeitos se houver Arts/Quick no combo)
+      list.push(makeSpell(`${sk}:bolt`, {
+        name: `Disparo ${elemA}`, type:"Dano", kind:"Ataque", element: elemA, rune:false, support:false, cd: cdA,
+        rollMode:"buster",
+        how:[pressLine("como um projétil concentrado"), hasArts?"Você sela o impacto com uma marca rúnica de curto prazo." : "Você mantém o foco para perfurar a defesa.", hasQuick?"O fluxo é rápido: você reposiciona após o disparo." : null].filter(Boolean),
+        result: hasArts ? "Causa dano e deixa uma marca leve (rastreio/pressão residual) por instantes." : "Causa dano concentrado em um alvo." 
+      }));
+      list.push(makeSpell(`${sk}:rune_punch`, {
+        name: "Punho Selado", type:"Dano", kind:"Ataque", element:"Neutro", rune:true, support:false, cd: cdB,
+        rollMode:"buster",
+        how:[runeLine("impacto"),"Você fecha o punho e descarrega a pressão no contato."],
+        result:"Causa dano de impacto. A runa " + (hasArts?"atrapalha a postura do alvo por instantes." : "se apaga ao contato.")
+      }));
+      list.push(makeSpell(`${sk}:lance`, {
+        name:"Lança de Éter", type:"Dano", kind:"Ataque", element: elemB, rune:false, support:false, cd: cdC,
+        rollMode:"buster",
+        how:[pressLine("em forma de lâmina/lâmina de mana"),"Você ajusta o ângulo para atingir um ponto fraco."],
+        result: hasArts?"Causa dano e empurra a energia do alvo para fora do eixo (efeito médio, narrativo).":"Causa dano e abre espaço para a equipe." 
+      }));
+      list.push(makeSpell(`${sk}:pin`, {
+        name:"Compressão: Pino de Pressão", type:"Dano", kind:"Ataque", element:"Neutro", rune:true, support:false, cd: cdFrom(seed0+1),
+        rollMode:"buster",
+        how:[runeLine("travamento"),"Você crava a runa no chão/parede e " + (hasArts?"puxa" : "força") + " o alvo para a linha do golpe."],
+        result: hasArts?"Causa dano e aplica um travamento leve (não impede servo, só dificulta movimento por instantes).":"Causa dano e força recuo/posição ruim." 
+      }));
+      list.push(makeSpell(`${sk}:sigil_shot`, {
+        name:"Tiro com Glifo", type:"Dano", kind:"Ataque", element: elemC, rune:true, support:false, cd: cdFrom(seed0+2),
+        rollMode:"buster",
+        how:["Você desenha um glifo no ar com a ponta dos dedos.","A pressão atravessa o glifo e sai mais estável."],
+        result:"Causa dano e deixa um brilho residual que facilita leitura mágica (informação) por instantes." 
+      }));
+      // Se houver Arts, adicionar contra-magia média
+      list.push(makeSpell(`${sk}:counter`, {
+        name:"Corte de Interferência", type:"Controle", kind:"Interferência", element:"Neutro", rune:true, support:true, cd: cdFrom(seed0+4),
+        rollMode: hasBuster ? "buster" : "none",
+        how:["Você desenha uma runa de ruído sobre o trajeto do feitiço inimigo.","Você corta o fluxo com um impacto curto (não anula tudo — só enfraquece/desvia)."],
+        result:"Se houver magia inimiga na cena, você pode reduzir, desviar ou atrasar um efeito (até médio). Se usar como ataque, ainda causa dano." 
+      }));
+      // Dois utilitários de pressão
+      list.push(makeSpell(`${sk}:rupture`, {
+        name:"Ruptura Direcional", type:"Debuff", kind:"Ataque", element:"Neutro", rune:false, support:false, cd: cdFrom(seed0+5),
+        rollMode:"buster",
+        how:[pressLine("num estalo direcional"),"Você força a abertura de guarda num ângulo específico."],
+        result:"Causa dano e aplica uma abertura de guarda momentânea (vantagem narrativa para o próximo aliado)." 
+      }));
+      list.push(makeSpell(`${sk}:mark`, {
+        name:"Marca de Pressão", type:"Utilidade", kind:"Marcação", element:"Neutro", rune:true, support:true, cd: cdFrom(seed0+6),
+        rollMode:"buster",
+        how:[runeLine("rastreio"),"Você prende a marca no alvo com um golpe curto."],
+        result:"Causa dano e marca o alvo (rastreio/identificação por energia) por um curto período." 
+      }));
+    }
+
+    if(main === "quick"){
+      // QUICK = área e ocupação
+      list.push(makeSpell(`${sk}:sweep`, {
+        name:`Varredura ${elemA}`, type:"Dano", kind:"Ataque", element: elemA, rune:false, support:false, cd: cdA,
+        rollMode:"quick",
+        how:[pressLine("em onda larga"), hasArts?"No fim, você ancora um efeito leve nos atingidos." : "Você mantém a onda contínua para cobrir a área."],
+        result: hasArts?"Causa dano em área e aplica um efeito leve (desorientação/atraso narrativo).":"Causa dano em área." 
+      }));
+      list.push(makeSpell(`${sk}:shards`, {
+        name:"Chuva de Estilhaços Rúnicos", type:"Dano", kind:"Ataque", element: elemB, rune:true, support:false, cd: cdB,
+        rollMode:"quick",
+        how:[weaveLine("para fragmentar"),"Pequenos selos explodem em estilhaços de pressão."],
+        result:"Causa dano em área. A área fica " + (hasArts?"marcada com ruído mágico (interferência leve).":"difícil de atravessar sem se expor.")
+      }));
+      list.push(makeSpell(`${sk}:zone`, {
+        name:"Zona de Compressão", type:"Controle", kind:"Controle", element:"Neutro", rune:true, support:true, cd: cdC,
+        rollMode: hasArts?"quick":"quick",
+        how:["Você desenha um retângulo/círculo de runas no chão.","Você varre a zona com pressão constante."],
+        result:"Causa dano em área. A zona fica sob controle (dificulta avanço e empurra alvos)." 
+      }));
+      list.push(makeSpell(`${sk}:veil`, {
+        name:`Cortina ${elemC}`, type:"Utilidade", kind:"Utilidade", element: elemC, rune:false, support:true, cd: cdFrom(seed0+1),
+        rollMode: hasArts?"quick":"none",
+        how:["Você dispersa partículas/éter no ar e em seguida varre com pressão.","O ambiente fica turvo por um instante."],
+        result: hasArts?"Causa dano leve e cria cobertura/ocultação momentânea.":"Cria cobertura/ocultação momentânea (sem dano)." 
+      }));
+      list.push(makeSpell(`${sk}:tether`, {
+        name:"Laço de Vento", type:"Controle", kind:"Controle", element:"Vento", rune:true, support:true, cd: cdFrom(seed0+2),
+        rollMode:"quick",
+        how:[runeLine("puxão"),"Você cria correntes de pressão que arrastam a borda da área."],
+        result:"Causa dano e puxa/empurra alvos na borda (controle leve)." 
+      }));
+      list.push(makeSpell(`${sk}:heal_mist`, {
+        name:"Brisa de Reajuste", type:"Cura", kind:"Cura", element:"Neutro", rune:true, support:true, cd: cdFrom(seed0+3),
+        rollMode: hasArts ? "healArea" : "none",
+        reach:"zona escolhida à vista",
+        targets:"múltiplos aliados na área",
+        how:["Você espalha pressão em brisa controlada.","Você ativa runas de alinhamento corporal no fim do pulso."],
+        result: hasArts?"Cura leve em área (sem travar inimigos).":"Efeito de suporte leve (sem rolagem)." 
+      }));
+      // mais três variações de dano
+      list.push(makeSpell(`${sk}:chain`, {
+        name:"Impactos em Cadeia", type:"Dano", kind:"Ataque", element:"Neutro", rune:false, support:false, cd: cdFrom(seed0+4),
+        rollMode:"quick",
+        how:[pressLine("em múltiplos estalos"),"Você “quica” a pressão entre alvos próximos."],
+        result:"Causa dano em área. Narrativamente, prioriza alvos agrupados." 
+      }));
+      list.push(makeSpell(`${sk}:pulse`, {
+        name:`Pulso ${elemB}`, type:"Dano", kind:"Ataque", element: elemB, rune:true, support:false, cd: cdFrom(seed0+5),
+        rollMode:"quick",
+        how:[runeLine("pulso"),"A runa explode em uma onda curta que se espalha."],
+        result:"Causa dano em área e afeta objetos leves/estruturas frágeis (narrativo)." 
+      }));
+      list.push(makeSpell(`${sk}:breaker`, {
+        name:"Quebra de Formação", type:"Debuff", kind:"Ataque", element:"Neutro", rune:true, support:true, cd: cdFrom(seed0+6),
+        rollMode:"quick",
+        how:[weaveLine("para ‘marcar’ passos"),"Quem é atingido sente a cadência do próprio movimento falhar por um instante."],
+        result:"Causa dano em área e aplica debuff leve (reduz reações/posicionamento por instantes, sem paralisar)." 
+      }));
+    }
+
+    if(main === "arts"){
+      // ARTS = efeito/suporte; algumas opções viram dano sem efeito
+      list.push(makeSpell(`${sk}:seal`, {
+        name:"Selo de Contenção", type:"Controle", kind:"Selo", element:"Neutro", rune:true, support:true, cd: cdA,
+        rollMode:"none",
+        how:[runeLine("contenção"),"Você impõe uma regra local: ‘não avance por este traço’ (curto)."],
+        result:"Cria um selo/linha de contenção em uma zona pequena. Não impede servo, mas cria obstáculo e força escolha." 
+      }));
+      list.push(makeSpell(`${sk}:interf`, {
+        name:"Interferência de Circuito", type:"Controle", kind:"Interferência", element:"Neutro", rune:true, support:true, cd: cdB,
+        rollMode:"none",
+        how:[runeLine("ruído"),"Você bate a pressão como ‘chave’ para bagunçar o fluxo mágico."],
+        result:"Reduz a estabilidade de uma magia inimiga (até média). Pode atrasar, desviar ou enfraquecer." 
+      }));
+      list.push(makeSpell(`${sk}:heal`, {
+        name:"Runa de Remendo", type:"Cura", kind:"Cura", element:"Neutro", rune:true, support:true, cd: cdC,
+        rollMode: hasQuick ? "healArea" : "heal",
+        reach: hasQuick ? "zona escolhida à vista" : "curta a média (à vista)",
+        targets: hasQuick ? "múltiplos aliados na área" : "1 aliado",
+        how:[runeLine("reparo"), hasQuick?"Você espalha o pulso pela área." : "Você ancora no alvo."],
+        result: hasQuick?"Cura em área (leve a moderada).":"Cura um alvo." 
+      }));
+      list.push(makeSpell(`${sk}:shield`, {
+        name:"Barreira de Pressão", type:"Defesa", kind:"Escudo", element:"Neutro", rune:true, support:true, cd: cdFrom(seed0+1),
+        rollMode:"shield",
+        how:[runeLine("barreira"),"Você fecha um circuito e ergue uma parede curta de força."],
+        result:"Cria um escudo que absorve dano por um instante." 
+      }));
+      list.push(makeSpell(`${sk}:scan`, {
+        name:"Leitura de Assinatura", type:"Utilidade", kind:"Detecção", element:"Neutro", rune:false, support:true, cd: cdFrom(seed0+2),
+        rollMode:"none",
+        how:["Você ‘escuta’ o éter com pressão mínima.","Você identifica padrões: ilusões, armadilhas simples, fluxo de mana."],
+        result:"Detecção/diagnóstico: revela pistas mágicas e dá vantagem narrativa contra ocultação e truques simples." 
+      }));
+      list.push(makeSpell(`${sk}:terrain`, {
+        name:`Ajuste de Terreno (${elemA})`, type:"Controle", kind:"Terreno", element: elemA, rune:true, support:true, cd: cdFrom(seed0+3),
+        rollMode:"none",
+        how:[runeLine("terreno"),"Você altera um detalhe: atrito, poeira, gelo fino, vento direcional, etc."],
+        result:"Altera o terreno em uma zona pequena (controle leve a médio)." 
+      }));
+      // Arts como dano (sem efeito)
+      list.push(makeSpell(`${sk}:dart`, {
+        name:`Dardo ${elemB}`, type:"Dano", kind:"Ataque", element: elemB, rune:false, support:false, cd: cdFrom(seed0+4),
+        rollMode:"arts",
+        how:[pressLine("em um dardo simples"),"Sem runas: só força bruta do éter."],
+        result:"Causa dano leve (sem efeito adicional)." 
+      }));
+      list.push(makeSpell(`${sk}:blade`, {
+        name:"Lâmina Curta de Mana", type:"Dano", kind:"Ataque", element:"Neutro", rune:false, support:false, cd: cdFrom(seed0+5),
+        rollMode:"arts",
+        how:[pressLine("em um corte rápido"),"Você mantém a magia ‘seca’: nada de efeito extra."],
+        result:"Causa dano leve (sem efeito adicional)." 
+      }));
+      list.push(makeSpell(`${sk}:buff`, {
+        name:"Runa de Ritmo", type:"Buff", kind:"Suporte", element:"Neutro", rune:true, support:true, cd: cdFrom(seed0+6),
+        rollMode:"none",
+        reach:"curta a média (à vista)",
+        targets:"1 aliado",
+        how:[runeLine("ritmo"),"Você estabiliza respiração e timing do aliado."],
+        result:"Buff leve: melhora timing/controle (vantagem narrativa ou pequeno bônus conforme o mestre)." 
+      }));
+    }
+
+    // Garante tamanho 8–12
+    // Se por algum motivo sobrou fora, reduz.
+    while(list.length > 12) list.pop();
+    while(list.length < 8){
+      const e = pick(ELEMENTS, seed0 + list.length*11);
+      list.push(makeSpell(`${sk}:extra${list.length}`, {
+        name:`Pressão Direta (${e})`, type: main==="arts"?"Utilidade":"Dano", kind: main==="arts"?"Utilidade":"Ataque", element:e, rune:false, support:(main==="arts"), cd: cdFrom(seed0 + list.length),
+        rollMode: main==="arts"?"none":(main==="quick"?"quick":"buster"),
+        how:["Você usa uma aplicação simples e segura de pressão mágica."],
+        result:"Efeito genérico coerente com a cena (sem quebrar regras)."
+      }));
+    }
+
+    return list;
+  }
+
+  // Cache por sequência
+  const TAU_SPELL_CACHE = new Map();
+  function taumaturgySpellsForSeq(seq){
+    const k = seqKey(seq);
+    if(TAU_SPELL_CACHE.has(k)) return TAU_SPELL_CACHE.get(k);
+    const v = buildTaumaturgySpellsForSeq(seq);
+    TAU_SPELL_CACHE.set(k, v);
+    return v;
+  }
+
+  function currentSpellForSeq(seq){
+    if(state.mode !== "taumaturgia") return null;
+    if(seq.length===0) return null;
+    const k = seqKey(seq);
+    const options = taumaturgySpellsForSeq(seq);
+    const chosenId = state.selectedSpellBySeq[k];
+    return options.find(s=>s.id===chosenId) || options[0] || null;
+  }
+
+  function syncMagicSelect(){
+    if(!magicSelect) return;
+    const seq = seqKeys();
+    const show = (state.mode === "taumaturgia") && seq.length>0;
+    magicSelect.disabled = !show;
+    magicSelect.style.display = show ? "" : "none";
+    // Oculta label inteira se não usar
+    if(magicSelect.parentElement) magicSelect.parentElement.style.display = show ? "" : "none";
+
+    if(!show){
+      magicSelect.innerHTML = "";
+      return;
+    }
+
+    const opts = taumaturgySpellsForSeq(seq);
+    const k = seqKey(seq);
+    const chosenId = state.selectedSpellBySeq[k] || (opts[0] && opts[0].id);
+    if(chosenId) state.selectedSpellBySeq[k] = chosenId;
+
+    magicSelect.innerHTML = "";
+    opts.forEach((sp)=>{
+      const o = document.createElement("option");
+      o.value = sp.id;
+      o.textContent = sp.name;
+      magicSelect.appendChild(o);
+    });
+    magicSelect.value = state.selectedSpellBySeq[k];
+  }
+
   // ------ Cura: combinações especiais (Taumaturgia) ------
   const HEALING = {
     "arts": {
@@ -408,9 +745,9 @@
     const a = seq.filter(x=>x==="arts").length || 1;
     const b = seq.filter(x=>x==="buster").length || 1;
 
-    if(dmgMode==="shield") return "Absorção: 1d12 (escudo).";
-    if(dmgMode==="buster") return `Dano: ${b}d10 (impacto em 1 alvo).`;
-    if(dmgMode==="quick")  return `Dano: ${q}d6 em cada alvo atingido.`;
+    if(dmgMode==="shield" || dmgMode==="shieldArea") return "Absorção: 1d12 (2 Arts) ou 1d12+1d8 (3 Arts).";
+    if(dmgMode==="buster") return `Dano: ${b}d10 (vira d12 se houver 2+ Busters no combo).`;
+    if(dmgMode==="quick")  return `Dano: (${q}+${b})d6 em cada alvo atingido (Quick + Buster aumenta dados).`;
     if(dmgMode==="heal")   return `Cura: ${a}d8 (em 1 aliado).`;
     if(dmgMode==="healArea") return `Cura: ${a}d8 para cada aliado na área (configure a quantidade de alvos).`;
     return `Arts: ${a}d8 se você escolher “Dano”; se escolher “Efeito”, não rola valor.`;
@@ -533,6 +870,45 @@
       return;
     }
 
+    // Taumaturgia: exibe a magia escolhida (via select) em vez de uma técnica única.
+    if(state.mode === "taumaturgia"){
+      syncMagicSelect();
+      const spell = currentSpellForSeq(s);
+      if(!spell){
+        actionsHint.textContent = "Nenhuma magia encontrada (isso não deveria acontecer).";
+        return;
+      }
+
+      actionsHint.textContent = `Magias para: ${prettySeq(s)}`;
+
+      const div = document.createElement("div");
+      div.className = "actionCard selected";
+      div.innerHTML = `
+        <div class="actionTop">
+          <div>
+            <div class="actionName">${spell.name}</div>
+            <div class="actionMeta">${tagsLine(spell)}</div>
+          </div>
+          <div class="muted">${prettySeq(s)}</div>
+        </div>
+        <div class="reqRow">
+          ${s.map(k=>{
+            const c = cardByKey(k);
+            return `<span class="reqPill"><img class="seqIcon" src="${c.icon}" alt="${c.label}"/>${c.label}</span>`;
+          }).join("")}
+        </div>
+      `;
+      div.addEventListener("click", ()=>{
+        playClick();
+        if(damageOut) damageOut.textContent = "—";
+        renderResult();
+      });
+
+      actionsList.appendChild(div);
+      return;
+    }
+
+    // Volumen: mantém o sistema de técnicas automático.
     const action = currentActionForSeq(s);
     if(!action){
       actionsHint.textContent = "Nenhuma técnica encontrada (isso não deveria acontecer).";
@@ -597,6 +973,42 @@
       return;
     }
 
+    // Taumaturgia: usa o seletor de magias (várias opções por sequência)
+    if(state.mode === "taumaturgia"){
+      syncMagicSelect();
+      const spell = currentSpellForSeq(s);
+      if(!spell){
+        if(resultTitle) resultTitle.textContent = "—";
+        if(resultTags) resultTags.textContent = "—";
+        if(resultText) resultText.textContent = "Magia não encontrada.";
+        if(rollDamageBtn) rollDamageBtn.disabled = true;
+        if(executeBtn) executeBtn.disabled = true;
+        return;
+      }
+
+      // ArtsMode não é necessário aqui (cada magia define se rola ou não)
+      if(artsMode && artsMode.parentElement) artsMode.parentElement.style.display = "none";
+
+      if(resultTitle) resultTitle.textContent = spell.name;
+      if(resultTags) resultTags.textContent = `Taumaturgia • ${tagsLine(spell)} • Sequência: ${prettySeq(s)}`;
+      if(resultText) resultText.textContent = buildSpellText(spell, s);
+
+      const rm = spell.rollMode || "none";
+      if(rollDamageBtn){
+        rollDamageBtn.dataset.mode = rm;
+        rollDamageBtn.disabled = (rm === "none");
+        rollDamageBtn.textContent =
+          (rm === "shield" || rm === "shieldArea") ? "Rolar escudo" :
+          (rm === "heal" || rm === "healArea") ? "Rolar cura" :
+          (rm === "none") ? "Rolar" : "Rolar valor";
+      }
+      if(executeBtn) executeBtn.disabled = false;
+      return;
+    }
+
+    // Volumen: mantém o sistema de técnicas automático
+    if(artsMode && artsMode.parentElement) artsMode.parentElement.style.display = "";
+
     const action = currentActionForSeq(s);
     if(!action){
       if(resultTitle) resultTitle.textContent = "—";
@@ -609,7 +1021,7 @@
 
     if(resultTitle) resultTitle.textContent = action.name;
     if(resultTags) resultTags.textContent =
-      `${state.mode === "volumen" ? "Volumen" : "Taumaturgia"} • ${action.kind} • ${action.tags} • Sequência: ${prettySeq(action.req)}`;
+      `Volumen • ${action.kind} • ${action.tags} • Sequência: ${prettySeq(action.req)}`;
 
     if(resultText) resultText.textContent = action.text();
 
@@ -646,32 +1058,40 @@
 
     playRoll();
 
-    const bCount = Math.max(1, countInSeq("buster"));
-    const qCount = Math.max(1, countInSeq("quick"));
-    const aCount = Math.max(1, countInSeq("arts"));
+    const bCount = countInSeq("buster");
+    const qCount = countInSeq("quick");
+    const aCount = countInSeq("arts");
 
-    if(mode === "shield"){
-      const v = randInt(1,12);
-      if(damageOut) damageOut.textContent = `1d12 (escudo) = ${v}`;
+    if(mode === "shield" || mode === "shieldArea"){
+      // Escudo baseado em Arts: 2 Arts = 1d12; 3 Arts = 1d12+1d8
+      const bonus = (aCount >= 3) ? randInt(1,8) : 0;
+      const base = randInt(1,12);
+      const total = base + bonus;
+      const label = (aCount >= 3) ? `1d12+1d8` : `1d12`;
+      if(damageOut) damageOut.textContent = `${label} (escudo) = ${total}`;
       return;
     }
 
     if(mode === "buster"){
+      // Buster: 1d10; se houver outro Buster no combo (2º/3º), vira d12
+      const die = (bCount >= 2) ? 12 : 10;
+      const n = Math.max(1, bCount);
       const rolls = [];
       let sum = 0;
-      for(let i=0;i<bCount;i++){
-        const r = randInt(1,10);
+      for(let i=0;i<n;i++){
+        const r = randInt(1,die);
         rolls.push(r);
         sum += r;
       }
-      if(damageOut) damageOut.textContent = `${bCount}d10 = [${rolls.join(", ")}] (total ${sum})`;
+      if(damageOut) damageOut.textContent = `${n}d${die} = [${rolls.join(", ")}] (total ${sum})`;
       return;
     }
 
     if(mode === "arts" || mode === "heal" || mode === "healArea"){
       const rolls = [];
       let sum = 0;
-      for(let i=0;i<aCount;i++){
+      const nA = Math.max(1, aCount);
+      for(let i=0;i<nA;i++){
         const r = randInt(1,8);
         rolls.push(r);
         sum += r;
@@ -683,13 +1103,13 @@
         let grand = 0;
         for(let t=0;t<n;t++){
           grand += sum;
-          per.push(aCount === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
+          per.push(nA === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
         }
-        if(damageOut) damageOut.textContent = `${n} aliado(s) × ${aCount}d8 = [${per.join(" | ")}] (total ${grand})`;
+        if(damageOut) damageOut.textContent = `${n} aliado(s) × ${nA}d8 = [${per.join(" | ")}] (total ${grand})`;
       } else if(mode === "heal"){
-        if(damageOut) damageOut.textContent = `${aCount}d8 (cura) = [${rolls.join(", ")}] (total ${sum})`;
+        if(damageOut) damageOut.textContent = `${nA}d8 (cura) = [${rolls.join(", ")}] (total ${sum})`;
       } else {
-        if(damageOut) damageOut.textContent = `${aCount}d8 = [${rolls.join(", ")}] (total ${sum})`;
+        if(damageOut) damageOut.textContent = `${nA}d8 = [${rolls.join(", ")}] (total ${sum})`;
       }
       return;
     }
@@ -699,19 +1119,22 @@
       const perTarget = [];
       let grand = 0;
 
+      // Quick: base = qCount d6 por alvo; cada Buster no combo adiciona +1d6 por alvo
+      const dicePerTarget = Math.max(1, qCount) + Math.max(0, bCount);
+
       for(let t=0;t<n;t++){
         const rolls = [];
         let sum = 0;
-        for(let i=0;i<qCount;i++){
+        for(let i=0;i<dicePerTarget;i++){
           const r = randInt(1,6);
           rolls.push(r);
           sum += r;
         }
         grand += sum;
-        perTarget.push(qCount === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
+        perTarget.push(dicePerTarget === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
       }
 
-      if(damageOut) damageOut.textContent = `${n} alvo(s) × ${qCount}d6 = [${perTarget.join(" | ")}] (total ${grand})`;
+      if(damageOut) damageOut.textContent = `${n} alvo(s) × ${dicePerTarget}d6 = [${perTarget.join(" | ")}] (total ${grand})`;
       return;
     }
   }
@@ -729,7 +1152,9 @@
     if(damageOut) damageOut.textContent = "—";
     if(resultTitle) resultTitle.textContent = "—";
     if(resultTags) resultTags.textContent = "—";
-    if(resultText) resultText.textContent = "Técnica executada. Monte uma nova sequência.";
+    if(resultText) resultText.textContent = (state.mode === "taumaturgia")
+      ? "Magia executada. Monte uma nova sequência."
+      : "Técnica executada. Monte uma nova sequência.";
 
     if(rollDamageBtn){
       rollDamageBtn.disabled = true;
@@ -754,7 +1179,7 @@
     if(damageOut) damageOut.textContent = "—";
     if(resultTitle) resultTitle.textContent = "—";
     if(resultTags) resultTags.textContent = "—";
-    if(resultText) resultText.textContent = "Monte uma sequência e selecione a técnica.";
+    if(resultText) resultText.textContent = "Monte uma sequência e selecione a magia/técnica.";
 
     if(rollDamageBtn){
       rollDamageBtn.disabled = true;
@@ -789,6 +1214,16 @@
 
   if(artsMode) artsMode.addEventListener("change", ()=>{
     if(damageOut) damageOut.textContent = "—";
+    renderResult();
+  });
+
+  if(magicSelect) magicSelect.addEventListener("change", ()=>{
+    if(damageOut) damageOut.textContent = "—";
+    const s = seqKeys();
+    if(state.mode !== "taumaturgia" || s.length === 0) return;
+    const k = seqKey(s);
+    state.selectedSpellBySeq[k] = magicSelect.value;
+    renderActions();
     renderResult();
   });
 

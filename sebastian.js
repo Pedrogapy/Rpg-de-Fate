@@ -65,7 +65,6 @@
 
   const targetsCount = $("targetsCount");
   const artsMode = $("artsMode");
-  const magicSelect = $("magicSelect");
   const rollDamageBtn = $("rollDamageBtn");
   const executeBtn = $("executeBtn");
   const damageOut = $("damageOut");
@@ -255,7 +254,7 @@
 
   const ALL_ACTIONS = {
     volumen: buildAllActions("volumen"),
-    taumaturgia: buildAllSpellsTaumaturgia(),
+    taumaturgia: buildAllActions("taumaturgia"),
   };
 
   function getModeLabel() {
@@ -299,393 +298,6 @@
     }
   }
 
-
-  // ============================
-  // Biblioteca de Magias — Taumaturgia (opções por sequência)
-  // - Primeira carta define o comportamento principal
-  // - Segunda e terceira cartas complementam (área, força, efeito)
-  // - CDs entre 12 e 16
-  // - Sem “anular servo / realidade”; contra-magia no máximo média
-  // ============================
-
-  function buildAllSpellsTaumaturgia() {
-    const keys = ["buster", "arts", "quick"];
-    const out = [];
-
-    for (let len = 1; len <= 3; len++) genSeq([], len);
-    return out;
-
-    function genSeq(prefix, len) {
-      if (prefix.length === len) {
-        const seq = prefix.slice();
-        const opts = genTaumSpellsForSeq(seq);
-
-        for (let i = 0; i < opts.length; i++) {
-          out.push(buildSpellAction(seq, opts[i], i));
-        }
-
-        // fallback: se por algum motivo não gerou nada, mantém a ação genérica antiga
-        if (!opts.length) out.push(buildAction("taumaturgia", seq));
-        return;
-      }
-      for (const k of keys) genSeq(prefix.concat(k), len);
-    }
-  }
-
-  function genTaumSpellsForSeq(seq) {
-    const s = seqKeyStr(seq);
-    const seed = stableHash(`taum:${s}`);
-
-    const main = seq[0];
-    const mods = seq.slice(1);
-
-    const hasB = mods.includes("buster");
-    const hasQ = mods.includes("quick");
-    const hasA = mods.includes("arts");
-
-    const element = pick(["Fogo", "Gelo", "Raio", "Vento", "Terra", "Água", "Luz", "Sombra", "Éter"], seed + 7);
-    const runeTheme = pick(["Pressão", "Vínculo", "Âncora", "Pulso", "Traço", "Círculo", "Chave", "Limiar"], seed + 19);
-
-    const cd = 12 + ((seed % 5)); // 12..16
-
-    // “escala” narrativa do efeito (não muda dado base)
-    const strengthWord =
-      (mods.filter(x => x === "buster").length >= 2) ? "mais forte" :
-      (hasB ? "mais forte" : (hasQ ? "mais amplo" : "estável"));
-
-    // helper: tags
-    function mkTags({ type, elemental, runic, support, rarity }) {
-      const tags = [];
-      tags.push(`CD ${cd}`);
-      tags.push(type);
-      if (elemental) tags.push(element);
-      if (runic) tags.push(`Runa: ${runeTheme}`);
-      if (support) tags.push("Suporte");
-      if (rarity) tags.push(rarity);
-      return tags;
-    }
-
-    // define comportamento da rolagem baseado na primeira carta
-    function rollModelFor(kind) {
-      // kind: damage | heal | shield | none
-      const isArea = (main === "quick") || (main === "arts" && hasQ);
-      const bAfterMain = (main === "buster" && seq.slice(1).includes("buster"));
-      const bCountMods = mods.filter(x => x === "buster").length;
-
-      if (kind === "damage") {
-        if (main === "buster") {
-          return { kind: "damage", main: "buster", area: false, busterSides: bAfterMain ? 12 : 10 };
-        }
-        if (main === "quick") {
-          // Quick base 1d6 por alvo; cada Buster na sequência adiciona +1d6 por alvo
-          return { kind: "damage", main: "quick", area: true, quickDice: 1 + bCountMods };
-        }
-        // Arts dano (quando uma magia específica “vira dano”)
-        return { kind: "damage", main: "arts", area: !!hasQ, artsDice: 1 };
-      }
-
-      if (kind === "heal") {
-        return { kind: "heal", main: "arts", area: !!hasQ, healDice: 1 };
-      }
-
-      if (kind === "shield") {
-        return { kind: "shield", main: "arts", area: !!hasQ, shieldSides: 12, shieldDice: 1 };
-      }
-
-      return { kind: "none", main, area: false };
-    }
-
-    const list = [];
-
-    // ---------- opções por tipo principal ----------
-    if (main === "buster") {
-      // 1) elemental simples
-      list.push({
-        name: `Disparo de ${element}`,
-        kind: "Dano (Alvo único)",
-        tags: mkTags({ type: "Dano", elemental: true, runic: false, support: false, rarity: "Comum" }),
-        roll: rollModelFor("damage"),
-        text: buildSpellTextTemplate({
-          seq, main, cd, title: `Você dispara um projétil de ${element.toLowerCase()} condensado.`,
-          how: `A primeira carta (Buster) define impacto único. ${hasA ? "Arts encaixa um selo/controle no impacto. " : ""}${hasQ ? "Quick ajusta o timing e a trajetória (mais difícil de reagir). " : ""}`,
-          result: `Dano direto no alvo. ${hasA ? "Aplica um efeito leve (marca, empurrão ou desequilíbrio). " : ""}${hasQ ? "Atinge em ângulo, dificultando cobertura. " : ""}`,
-          value: (seq.slice(1).includes("buster") ? "Dano: 1d12 (Buster encadeado)." : "Dano: 1d10 (Buster)."),
-          extra: `CD: ${cd}.`,
-        }),
-      });
-
-      // 2) runa de impacto (pressão)
-      list.push({
-        name: `Runa de Impacto (${runeTheme})`,
-        kind: "Dano (Alvo único) • Corpo a corpo",
-        tags: mkTags({ type: "Dano", elemental: false, runic: true, support: false, rarity: "Comum" }),
-        roll: rollModelFor("damage"),
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você grava uma runa no punho/arma e libera pressão no contato.",
-          how: `Buster dá o “golpe principal”. ${hasA ? "Arts define o padrão do selo (travamento, abertura ou marca). " : ""}${hasQ ? "Quick faz o golpe encaixar em janela curta (difícil de aparar). " : ""}`,
-          result: `Dano de impacto com potencial de empurrão/queda (narrativo).`,
-          value: (seq.slice(1).includes("buster") ? "Dano: 1d12 (Buster encadeado)." : "Dano: 1d10 (Buster)."),
-          extra: `Tag rúnica: ${runeTheme}. CD: ${cd}.`,
-        }),
-      });
-
-      // 3) disparo com “selo leve” (se tiver Arts, reforça; se não, vira debuff leve)
-      list.push({
-        name: hasA ? "Selo de Travamento (Impacto)" : "Marca de Rastreamento",
-        kind: hasA ? "Dano + Controle" : "Dano + Utilidade",
-        tags: mkTags({ type: hasA ? "Controle" : "Utilidade", elemental: false, runic: true, support: true, rarity: "Avançada" }),
-        roll: rollModelFor("damage"),
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: hasA ? "O golpe carrega um selo curto que “agarra” a energia do alvo." : "O impacto deixa uma marca rúnica discreta.",
-          how: `Buster define o dano. ${hasA ? "Arts injeta o selo. " : ""}${hasQ ? "Quick torna o acerto mais oportuno. " : ""}`,
-          result: hasA
-            ? "Se acertar, o alvo sofre um efeito leve: dificuldade de recuar, ou perde uma reação narrativa (a critério do mestre)."
-            : "Você consegue rastrear o alvo por alguns minutos pela assinatura marcada (sem revelar posição perfeita).",
-          value: (seq.slice(1).includes("buster") ? "Dano: 1d12." : "Dano: 1d10."),
-          extra: `Contra-magia: baixa/média (não anula servos). CD: ${cd}.`,
-        }),
-      });
-
-      // 4) “ruptura” (controle defensivo contra feitiço leve)
-      list.push({
-        name: "Ruptura de Fluxo",
-        kind: "Dano + Contra-magia (média)",
-        tags: mkTags({ type: "Controle", elemental: false, runic: false, support: true, rarity: "Avançada" }),
-        roll: rollModelFor("damage"),
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você comprime mana e atinge o “fio” do feitiço enquanto fere o alvo.",
-          how: `Buster entrega o impacto. ${hasA ? "Arts guia a ruptura para o circuito mágico. " : ""}${hasQ ? "Quick muda o ângulo pra pegar a sustentação do feitiço. " : ""}`,
-          result: "Se houver um feitiço simples ativo no alvo (ou sustentado por ele), você pode enfraquecê-lo ou reduzir sua duração (não remove uma Autoridade/Selo de Servo).",
-          value: (seq.slice(1).includes("buster") ? "Dano: 1d12." : "Dano: 1d10."),
-          extra: `CD: ${cd}.`,
-        }),
-      });
-    }
-
-    if (main === "quick") {
-      // Quick sempre área; buster aumenta dados; arts adiciona efeito
-      const bMods = mods.filter(x => x === "buster").length;
-      const diceEach = 1 + bMods; // 1d6 base + buster(s)
-
-      // 1) rajada elemental
-      list.push({
-        name: `Rajada de ${element} (Varredura)`,
-        kind: "Dano (Área)",
-        tags: mkTags({ type: "Dano", elemental: true, runic: false, support: false, rarity: "Comum" }),
-        roll: { kind: "damage", main: "quick", area: true, quickDice: diceEach },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: `Você varre a área com lâminas curtas de ${element.toLowerCase()}.`,
-          how: `Quick define varredura e múltiplos alvos. ${hasA ? "Arts injeta um efeito (lento, cegueira leve, desarme narrativo). " : ""}${hasB ? "Buster adensa o dano (mais dados por alvo). " : ""}`,
-          result: hasA ? "Causa dano e deixa um efeito leve nos afetados." : "Causa dano em todos os alvos escolhidos.",
-          value: `Dano: ${diceEach}d6 por alvo.`,
-          extra: `CD: ${cd}.`,
-        }),
-      });
-
-      // 2) campo de pressão (controle)
-      list.push({
-        name: `Campo de Pressão (${runeTheme})`,
-        kind: hasA ? "Dano + Controle (Área)" : "Controle (Área)",
-        tags: mkTags({ type: "Controle", elemental: false, runic: true, support: true, rarity: "Avançada" }),
-        roll: { kind: hasB ? "damage" : "none", main: "quick", area: true, quickDice: diceEach },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você espalha runas rápidas no chão e “puxa” o espaço por um instante.",
-          how: `Quick define a área e o “alcançar muitos”. ${hasB ? "Buster transforma o pulso em impacto (dano). " : ""}${hasA ? "Arts determina o controle (segurar, empurrar, atrasar). " : ""}`,
-          result: hasB
-            ? "Dano em área e controle leve: empurrão, tropeço ou redução de mobilidade narrativa."
-            : "Controle em área: empurra/segura por um instante, abre caminho ou protege aliados (sem dano).",
-          value: hasB ? `Dano: ${diceEach}d6 por alvo.` : "Sem rolagem de dano (efeito).",
-          extra: `CD: ${cd}.`,
-        }),
-      });
-
-      // 3) névoa rúnica (debuff)
-      list.push({
-        name: "Névoa Rúnica (Supressão Leve)",
-        kind: "Debuff (Área)",
-        tags: mkTags({ type: "Debuff", elemental: false, runic: true, support: true, rarity: "Avançada" }),
-        roll: { kind: hasB ? "damage" : "none", main: "quick", area: true, quickDice: diceEach },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você solta uma névoa fina marcada por símbolos que “arranham” o foco.",
-          how: "Quick espalha a névoa; Arts define o debuff; Buster (se houver) transforma em dano junto.",
-          result: "Os afetados têm dificuldade leve de concentração (bom contra conjurações simples). Não impede ações, só atrapalha.",
-          value: hasB ? `Dano: ${diceEach}d6 por alvo.` : "Sem rolagem de dano (efeito).",
-          extra: `CD: ${cd}. Contra-magia: baixa/média.`,
-        }),
-      });
-
-      // 4) avanço + corte (mobilidade)
-      list.push({
-        name: "Passo de Fio (Atravessar)",
-        kind: "Mobilidade + Dano (Área curta)",
-        tags: mkTags({ type: "Utilidade", elemental: false, runic: false, support: true, rarity: "Comum" }),
-        roll: { kind: "damage", main: "quick", area: true, quickDice: diceEach },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você desloca curto e varre o caminho com cortes rápidos.",
-          how: "Quick é o passo e a varredura. Buster aumenta o dano por alvo. Arts adiciona um efeito de controle simples.",
-          result: "Você reposiciona e causa dano nos alvos escolhidos. Ótimo pra abrir rota em singularidade.",
-          value: `Dano: ${diceEach}d6 por alvo.`,
-          extra: `CD: ${cd}.`,
-        }),
-      });
-    }
-
-    if (main === "arts") {
-      // Arts: efeito / suporte; se tiver Quick -> área; se tiver Buster -> efeito mais forte.
-      const area = hasQ;
-      const strong = hasB;
-
-      // 1) cura
-      list.push({
-        name: area ? "Runa de Restauração (Área)" : "Runa de Restauração",
-        kind: "Cura",
-        tags: mkTags({ type: "Cura", elemental: false, runic: true, support: true, rarity: "Comum" }),
-        roll: { kind: "heal", main: "arts", area: area, healDice: 1 },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você traça uma runa curta que estabiliza feridas e reequilibra o pulso.",
-          how: `Arts define o efeito. ${area ? "Quick expande para área. " : ""}${strong ? "Buster torna a cura mais firme (narrativamente). " : ""}`,
-          result: area
-            ? "Cura leve em todos os aliados escolhidos (sem remover condições graves automaticamente)."
-            : "Cura leve em 1 aliado.",
-          value: "Cura: 1d8 (por alvo).",
-          extra: `CD: ${cd}.`,
-        }),
-      });
-
-      // 2) escudo
-      list.push({
-        name: area ? "Barreira Rúnica (Cúpula)" : "Barreira Rúnica",
-        kind: "Defesa",
-        tags: mkTags({ type: "Defesa", elemental: false, runic: true, support: true, rarity: "Avançada" }),
-        roll: { kind: "shield", main: "arts", area: area, shieldSides: 12, shieldDice: 1 },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Um círculo rúnico vira um escudo de pressão que intercepta ataques.",
-          how: `Arts define o escudo. ${area ? "Quick amplia a cobertura. " : ""}${strong ? "Buster “ancora” o escudo para aguentar mais (narrativo). " : ""}`,
-          result: area
-            ? "Escudo em área curta cobrindo 2–3 pessoas próximas (ou a zona escolhida)."
-            : "Escudo em 1 aliado ou em você.",
-          value: "Escudo: 1d12 (absorção).",
-          extra: `CD: ${cd}.`,
-        }),
-      });
-
-      // 3) selo/controle
-      list.push({
-        name: strong ? "Selo de Contenção (Médio)" : "Selo de Contenção (Leve)",
-        kind: "Controle",
-        tags: mkTags({ type: "Controle", elemental: false, runic: true, support: true, rarity: "Comum" }),
-        roll: { kind: "none", main: "arts", area: area },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você impõe uma regra local por alguns instantes (travamento, atraso, limite).",
-          how: `Arts grava o selo. ${area ? "Quick faz o selo pegar numa área. " : ""}${strong ? "Buster aumenta a firmeza do selo (sem paralisar servo). " : ""}`,
-          result: area
-            ? "Afeta uma pequena área: cria dificuldade de movimento, impede uma manobra simples ou força recuo."
-            : "Afeta 1 alvo: trava um gesto, dificulta concentração, ou impede um passo curto.",
-          value: "Sem rolagem de dano (efeito).",
-          extra: `CD: ${cd}. Contra-magia: média.`,
-        }),
-      });
-
-      // 4) contra-magia média (não pesada)
-      list.push({
-        name: "Corte de Conjuração",
-        kind: "Contra-magia (média)",
-        tags: mkTags({ type: "Controle", elemental: false, runic: false, support: true, rarity: "Avançada" }),
-        roll: { kind: "none", main: "arts", area: false },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você lê o fluxo e corta a sustentação de um feitiço comum.",
-          how: `Arts guia a leitura. ${strong ? "Buster ajuda a quebrar o ponto de ancoragem (médio). " : ""}${area ? "Quick permite cortar em uma zona, mas com menos precisão. " : ""}`,
-          result: "Você pode enfraquecer/anular uma magia simples (barreira fraca, ilusão leve, encantamento curto). Não cancela Autoridades/NPs.",
-          value: "Sem rolagem de dano (efeito).",
-          extra: `CD: ${cd}.`,
-        }),
-      });
-    }
-
-    // garantia: sempre no mínimo 4
-    while (list.length < 4) {
-      list.push({
-        name: `Runa Improvisada (${runeTheme})`,
-        kind: "Utilidade",
-        tags: mkTags({ type: "Utilidade", elemental: false, runic: true, support: true, rarity: "Comum" }),
-        roll: { kind: "none", main, area: false },
-        text: buildSpellTextTemplate({
-          seq, main, cd,
-          title: "Você improvisa uma pequena regra local para atravessar a cena.",
-          how: "A primeira carta define o foco; as outras ajustam o alcance/força.",
-          result: "Use para abrir portas, criar cobertura, puxar um objeto, iluminar, marcar ou estabilizar um aliado.",
-          value: "Sem rolagem de dano (efeito).",
-          extra: `CD: ${cd}.`,
-        }),
-      });
-    }
-
-    return list.slice(0, 5); // 5 opções por sequência
-  }
-
-  function buildSpellAction(seq, def, idx) {
-    const s = seqKeyStr(seq);
-    const id = `taum_${s}_${idx}`;
-    const tags = Array.isArray(def.tags) ? def.tags.join(" • ") : (def.tags || "—");
-
-    return {
-      id,
-      name: def.name,
-      kind: def.kind,
-      tags,
-      req: seq.slice(),
-      rollShield: def.roll && def.roll.kind === "shield",
-      roll: def.roll || { kind: "none", main: seq[0], area: false },
-      forceArtsDamage: !!def.forceArtsDamage,
-      text: () => def.text,
-    };
-  }
-
-  function buildSpellTextTemplate({ seq, main, cd, title, how, result, value, extra }) {
-    const seqLabel = seq.map(k => cardByKey(k).label).join(" → ");
-    const mainLabel = main === "buster" ? "Buster" : main === "quick" ? "Quick" : "Arts";
-    const range =
-      main === "buster" ? "curto a médio (linha de visão)" :
-      main === "quick" ? "curto (área próxima)" :
-      "curto a médio (à vista)";
-
-    const targets =
-      (main === "buster") ? "1 inimigo" :
-      (main === "quick") ? "2–3 alvos (ajuste no campo)" :
-      (seq.includes("quick") ? "2–3 alvos (área)" : "1 alvo");
-
-    return [
-      `Conjuração: 1 ação`,
-      `Modo: Taumaturgia (Pressão + Runas)`,
-      `Sequência: ${seqLabel}`,
-      `Alcance: ${range}`,
-      `Alvos: ${targets}`,
-      ``,
-      `Como a magia acontece:`,
-      `${title}`,
-      ``,
-      `Como ela funciona (carta principal = ${mainLabel}):`,
-      `${how}`,
-      ``,
-      `Resultado (na cena):`,
-      `${result}`,
-      ``,
-      `Valor:`,
-      `${value}`,
-      extra ? `\n${extra}` : "",
-    ].join("\n");
-  }
   function stableHash(str) {
     // hash simples e determinístico (sem crypto)
     let h = 2166136261;
@@ -903,70 +515,48 @@
   // ============================
 
   function renderActions() {
-    if (!actionsHint) return;
+    if (!actionsList || !actionsHint) return;
+    actionsList.innerHTML = "";
 
     const s = seqKeys();
-    const modeLabel = getModeLabel();
-
-    if (actionsList) actionsList.innerHTML = "";
-
     if (s.length === 0) {
-      actionsHint.textContent = "Monte uma sequência para ver as magias possíveis.";
-      if (magicSelect) {
-        magicSelect.innerHTML = "";
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.textContent = "—";
-        magicSelect.appendChild(opt);
-        magicSelect.disabled = true;
-      }
+      actionsHint.textContent = "Monte uma sequência para ver a técnica correspondente.";
       return;
     }
 
     const matched = findMatchedActions();
-    actionsHint.textContent = `Sequência: ${s.map(k => cardByKey(k).label).join(" → ")} • Modo: ${modeLabel}`;
+    actionsHint.textContent = `Técnica para: ${s.map(k => cardByKey(k).label).join(" → ")} • Modo: ${getModeLabel()}`;
 
-    // Modo B: seletor de magias
-    if (magicSelect) {
-      magicSelect.disabled = false;
-      magicSelect.innerHTML = "";
-
-      for (const a of matched) {
-        const opt = document.createElement("option");
-        opt.value = a.id;
-        opt.textContent = `${a.name} — ${a.kind}`;
-        magicSelect.appendChild(opt);
-      }
-
-      // mantém seleção se possível
-      const stillValid = matched.some(a => a.id === state.selectedActionId);
-      state.selectedActionId = stillValid ? state.selectedActionId : (matched[0] ? matched[0].id : null);
-
-      magicSelect.value = state.selectedActionId || "";
-    }
-
-    // Lista lateral vira só “preview” (opcional)
-    if (actionsList) {
-      const picked = matched.find(a => a.id === state.selectedActionId) || matched[0] || null;
-      if (!picked) return;
-
+    for (const a of matched) {
       const div = document.createElement("div");
-      div.className = "actionCard selected";
+      div.className = "actionCard";
       div.innerHTML = `
         <div class="actionTop">
           <div>
-            <div class="actionName">${picked.name}</div>
-            <div class="actionMeta">${picked.kind} • ${picked.tags}</div>
+            <div class="actionName">${a.name}</div>
+            <div class="actionMeta">${a.kind} • ${a.tags}</div>
           </div>
-          <div class="muted">${picked.req.map(k => cardByKey(k).label).join(" → ")}</div>
+          <div class="muted">${a.req.map(k => cardByKey(k).label).join(" → ")}</div>
         </div>
         <div class="reqRow">
-          ${picked.req.map(k => {
+          ${a.req.map(k => {
             const c = cardByKey(k);
             return `<span class="reqPill"><img class="seqIcon" src="${c.icon}" alt="${c.label}"/>${c.label}</span>`;
           }).join("")}
         </div>
       `;
+
+      div.addEventListener("click", () => {
+        playClick();
+        state.selectedActionId = a.id;
+
+        for (const el of actionsList.querySelectorAll(".actionCard")) el.classList.remove("selected");
+        div.classList.add("selected");
+
+        damageOut.textContent = "—";
+        renderResult();
+      });
+
       actionsList.appendChild(div);
     }
   }
@@ -981,7 +571,7 @@
     if (s.length === 0) {
       resultTitle.textContent = "—";
       resultTags.textContent = "—";
-      resultText.textContent = "Monte uma sequência e escolha uma magia.";
+      resultText.textContent = "Monte uma sequência e selecione a técnica.";
       rollDamageBtn.disabled = true;
       executeBtn.disabled = true;
       damageOut.textContent = "—";
@@ -991,20 +581,12 @@
     }
 
     const matched = findMatchedActions();
-
-    // garante que o select reflita a seleção
-    if (magicSelect && matched.length) {
-      const stillValid = matched.some(a => a.id === state.selectedActionId);
-      if (!stillValid) state.selectedActionId = matched[0].id;
-      magicSelect.value = state.selectedActionId || matched[0].id;
-    }
-
     const picked = matched.find(a => a.id === state.selectedActionId) || matched[0] || null;
 
     if (!picked) {
       resultTitle.textContent = "—";
       resultTags.textContent = "—";
-      resultText.textContent = "Sem magia (isso não deveria acontecer).";
+      resultText.textContent = "Sem técnica (isso não deveria acontecer).";
       rollDamageBtn.disabled = true;
       executeBtn.disabled = true;
       return;
@@ -1016,21 +598,25 @@
 
     resultText.textContent = picked.text();
 
-    const rollKind = (picked.roll && picked.roll.kind) ? picked.roll.kind : (picked.rollShield ? "shield" : "none");
+    // rolagem: se for defesa, sempre habilita (escudo)
+    // se não for defesa, habilita se houver ao menos uma carta que role algo (B/ Q / Arts em dano)
+    const bCount = countInSeq("buster");
+    const qCount = countInSeq("quick");
+    const aCount = countInSeq("arts");
 
-    const hasRoll = rollKind !== "none";
+    const artsIsDamage = (artsMode && artsMode.value === "damage");
+    const hasRoll = picked.rollShield || bCount > 0 || qCount > 0 || (artsIsDamage && aCount > 0);
 
     rollDamageBtn.disabled = !hasRoll;
     executeBtn.disabled = false;
 
-    rollDamageBtn.dataset.mode = rollKind;
+    rollDamageBtn.dataset.mode = picked.rollShield ? "shield" : "combo";
+    rollDamageBtn.textContent = picked.rollShield ? "Rolar escudo" : "Rolar";
 
-    if (rollKind === "damage") rollDamageBtn.textContent = "Rolar dano";
-    else if (rollKind === "heal") rollDamageBtn.textContent = "Rolar cura";
-    else if (rollKind === "shield") rollDamageBtn.textContent = "Rolar escudo";
-    else rollDamageBtn.textContent = "Rolar";
-
-    if (!hasRoll) damageOut.textContent = "—";
+    // dica visual
+    if (picked.rollShield) {
+      damageOut.textContent = "—";
+    }
   }
 
   function refreshActionsAndResult() {
@@ -1072,114 +658,50 @@
 
     playRoll();
 
+    const s = seqKeys();
     const matched = findMatchedActions();
     const picked = matched.find(a => a.id === state.selectedActionId) || matched[0] || null;
     if (!picked) return;
 
-    const roll = picked.roll || { kind: picked.rollShield ? "shield" : "none" };
+    const bCount = Math.max(0, countInSeq("buster"));
+    const qCount = Math.max(0, countInSeq("quick"));
+    const aCount = Math.max(0, countInSeq("arts"));
 
     const lines = [];
 
-    // helpers
-    function getTargets() {
-      return clamp(parseInt(targetsCount.value, 10) || 1, 1, 12);
-    }
-
-    // ---- SHIELD ----
-    if (roll.kind === "shield") {
-      const dice = Math.max(1, roll.shieldDice || 1);
-      const sides = Math.max(2, roll.shieldSides || 12);
-      const { rolls, sum } = rollDice(dice, sides);
-
-      if (roll.area) {
-        const n = getTargets();
-        lines.push(`Escudo (área): ${n} alvo(s) × ${dice}d${sides}`);
-        lines.push(`Rolagem: [${rolls.join(", ")}] (total ${sum})`);
-        damageOut.textContent = lines.join("
-");
-      } else {
-        damageOut.textContent = `${dice}d${sides} (escudo) = [${rolls.join(", ")}] (total ${sum})`;
-      }
+    if (picked.rollShield) {
+      const v = randInt(1, 12);
+      damageOut.textContent = `1d12 (escudo) = ${v}`;
       return;
     }
 
-    // ---- HEAL ----
-    if (roll.kind === "heal") {
-      const dice = Math.max(1, roll.healDice || 1);
-      const { rolls, sum } = rollDice(dice, 8);
-
-      if (roll.area) {
-        const n = getTargets();
-        const perTarget = [];
-        for (let t = 0; t < n; t++) {
-          const { sum: s2 } = rollDice(dice, 8);
-          perTarget.push(`${s2}`);
-        }
-        lines.push(`Cura (área): ${n} alvo(s) × ${dice}d8 = [${perTarget.join(" | ")}]`);
-        damageOut.textContent = lines.join("
-");
-      } else {
-        damageOut.textContent = `${dice}d8 (cura) = [${rolls.join(", ")}] (total ${sum})`;
-      }
-      return;
+    // Buster (alvo único)
+    if (bCount > 0) {
+      const { rolls, sum } = rollDice(bCount, 10);
+      lines.push(`Buster: ${bCount}d10 = [${rolls.join(", ")}] (total ${sum})`);
     }
 
-    // ---- DAMAGE ----
-    if (roll.kind === "damage") {
-      // principal define comportamento
-      const main = roll.main || picked.req[0];
-
-      if (main === "buster") {
-        const sides = roll.busterSides || 10;
-        const v = randInt(1, sides);
-        damageOut.textContent = `1d${sides} (Buster) = ${v}`;
-        return;
-      }
-
-      if (main === "quick") {
-        const n = getTargets();
-        const diceEach = Math.max(1, roll.quickDice || 1);
-
-        const perTarget = [];
-        let grand = 0;
-        for (let t = 0; t < n; t++) {
-          const { rolls, sum } = rollDice(diceEach, 6);
-          grand += sum;
-          perTarget.push(diceEach === 1 ? `${sum}` : `(${rolls.join("+")})=${sum}`);
-        }
-
-        lines.push(`Quick: ${n} alvo(s) × ${diceEach}d6 = [${perTarget.join(" | ")}] (total ${grand})`);
-        damageOut.textContent = lines.join("
-");
-        return;
-      }
-
-      // Arts dano (quando a magia especifica isso)
-      const dice = Math.max(1, roll.artsDice || 1);
-      const { rolls, sum } = rollDice(dice, 8);
-      if (roll.area) {
-        const n = getTargets();
-        const perTarget = [];
-        let grand = 0;
-        for (let t = 0; t < n; t++) {
-          const { rolls: r2, sum: s2 } = rollDice(dice, 8);
-          grand += s2;
-          perTarget.push(dice === 1 ? `${s2}` : `(${r2.join("+")})=${s2}`);
-        }
-        lines.push(`Arts (dano): ${n} alvo(s) × ${dice}d8 = [${perTarget.join(" | ")}] (total ${grand})`);
-        damageOut.textContent = lines.join("
-");
-      } else {
-        damageOut.textContent = `${dice}d8 (Arts dano) = [${rolls.join(", ")}] (total ${sum})`;
-      }
-      return;
+    // Arts (se estiver em dano)
+    const artsIsDamage = (artsMode && artsMode.value === "damage");
+    if (artsIsDamage && aCount > 0) {
+      const { rolls, sum } = rollDice(aCount, 8);
+      lines.push(`Arts: ${aCount}d8 = [${rolls.join(", ")}] (total ${sum})`);
+    } else if (aCount > 0) {
+      lines.push(`Arts: efeito (sem rolagem de dano)`);
     }
 
-    damageOut.textContent = "Sem rolagem.";
+    // Quick (por alvo)
+    if (qCount > 0) {
+      const n = clamp(parseInt(targetsCount.value, 10) || 1, 1, 12);
+      const { perTarget, grand } = rollQuickPerTarget(qCount, n);
+      lines.push(`Quick: ${n} alvo(s) × ${qCount}d6 = [${perTarget.join(" | ")}] (total ${grand})`);
+    }
+
+    damageOut.textContent = lines.length ? lines.join("\n") : "Sem rolagem.";
   }
 
   // ============================
-  // Executar (consome sequência) (consome sequência)
+  // Executar (consome sequência)
   // ============================
 
   function executeAction() {
@@ -1281,15 +803,6 @@
 
   if (artsMode) {
     artsMode.addEventListener("change", () => {
-      damageOut.textContent = "—";
-      renderResult();
-    });
-  }
-
-  if (magicSelect) {
-    magicSelect.addEventListener("change", () => {
-      playClick();
-      state.selectedActionId = magicSelect.value || null;
       damageOut.textContent = "—";
       renderResult();
     });

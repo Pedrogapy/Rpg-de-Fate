@@ -17,6 +17,8 @@
     { key:"buster", label:"Buster", css:"buster", icon:"assets/card_buster.svg", desc:"Buster: foco em 1 alvo (impacto concentrado)." },
   ];
   const ORDER = ["quick","arts","buster"];
+
+  const ELEMENTS = ["Fogo","Água","Gelo","Vento","Raio","Terra","Luz","Sombra","Neutro"];
   function cardByKey(k){ return CARDS.find(c=>c.key===k) || CARDS[0]; }
   function prettySeq(seq){ return seq.map(k=>cardByKey(k).label).join(" → "); }
 
@@ -27,6 +29,8 @@
     hand: [],
     seq: [],
     selectedActionId: null,
+    selectedSpellBySeq: {},
+    selectedElementBySeq: {},
     // Taumaturgia: magia escolhida por sequência (key = "quick|arts|buster")
     selectedSpellBySeq: Object.create(null),
     handLimit: 7,
@@ -64,6 +68,8 @@
   const targetsCount = $("targetsCount");
   const artsMode = $("artsMode");
   const magicSelect = $("magicSelect");
+  const elementSelect = $("elementSelect");
+  const elementPill = $("elementPill");
   const rollDamageBtn = $("rollDamageBtn");
   const executeBtn = $("executeBtn");
   const damageOut = $("damageOut");
@@ -291,7 +297,7 @@
   // - Sem raridades que "anulam servos". Contra-magia até média.
   // - CD sempre 12–16.
   // =========================
-  const ELEMENTS = ["Fogo","Gelo","Raio","Vento","Terra","Água","Luz","Sombra","Neutro"]; 
+  // (ELEMENTS definido acima)
 
   function hashStr(s){
     let h = 2166136261;
@@ -318,17 +324,67 @@
     return { reach: "curta a média (à vista)", targets: "1 alvo, objeto ou zona pequena" };
   }
 
-  function tagsLine(spell){
+  function tagsLine(spell, chosenElement){
     const parts = [];
+    const el = chosenElement || spell.element;
     if(spell.type) parts.push(spell.type);
-    if(spell.element && spell.element !== "Neutro") parts.push(`elemento: ${spell.element}`);
+    if(el && el !== "Neutro") parts.push(`elemento: ${el}`);
     if(spell.rune) parts.push("runa");
     if(spell.support) parts.push("suporte");
     if(spell.cd) parts.push(`CD ${spell.cd}`);
     return parts.join(" • ");
   }
 
-  function buildSpellText(spell, seq){
+
+  function isElementSelectable(spell){
+    if(!spell) return false;
+    if(spell.elementChoice) return true;
+    if(!spell.element) return false;
+    if(spell.element === "Qualquer" || spell.element === "Elemental") return true;
+    return ELEMENTS.includes(spell.element);
+  }
+
+  function getChosenElement(seq, spell){
+    if(!spell) return null;
+    if(!isElementSelectable(spell)) return spell.element || null;
+    const k = seqKey(seq);
+    const fallback = (spell.element && ELEMENTS.includes(spell.element)) ? spell.element : "Fogo";
+    const chosen = state.selectedElementBySeq[k] || fallback;
+    return ELEMENTS.includes(chosen) ? chosen : fallback;
+  }
+
+  function elementizeText(text, chosenEl, baseEl){
+    if(!text) return text;
+    let t = String(text);
+    if(t.includes("{E}")) t = t.replaceAll("{E}", chosenEl);
+    if(baseEl && ELEMENTS.includes(baseEl) && chosenEl && chosenEl !== baseEl){
+      t = t.split(baseEl).join(chosenEl);
+    }
+    return t;
+  }
+
+  function syncElementSelect(seq, spell){
+    if(!elementSelect || !elementPill) return;
+    const show = (state.mode === "taumaturgia") && seq.length>0 && isElementSelectable(spell);
+    elementPill.style.display = show ? "" : "none";
+    elementSelect.disabled = !show;
+    if(!show){
+      elementSelect.innerHTML = "";
+      return;
+    }
+    elementSelect.innerHTML = "";
+    ELEMENTS.forEach((el)=>{
+      const o = document.createElement("option");
+      o.value = el;
+      o.textContent = el;
+      elementSelect.appendChild(o);
+    });
+    const chosen = getChosenElement(seq, spell);
+    const k = seqKey(seq);
+    state.selectedElementBySeq[k] = chosen;
+    elementSelect.value = chosen;
+  }
+  function buildSpellText(spell, seq, chosenElement){
     const main = seq[0];
     const rt = { ...(defaultReachTargetsByMain(main)), ...(spell.reach?{reach:spell.reach}:{}), ...(spell.targets?{targets:spell.targets}:{}) };
 
@@ -341,10 +397,10 @@
     lines.push(`Cooldown: ${spell.cd}`);
     lines.push("");
     lines.push("Como a magia acontece:");
-    (spell.how || []).forEach(x=>lines.push(x));
+    (spell.how || []).forEach(x=>lines.push(elementizeText(x, chosenElement, spell.element)));
     lines.push("");
     lines.push("Resultado (o que isso faz na cena):");
-    lines.push(spell.result || "—");
+    lines.push(elementizeText(spell.result || "—", chosenElement, spell.element));
     lines.push("");
     lines.push("Valor:");
     lines.push(valueLine(spell.rollMode, seq));
@@ -616,6 +672,7 @@
       magicSelect.appendChild(o);
     });
     magicSelect.value = state.selectedSpellBySeq[k];
+    syncElementSelect(seq, currentSpellForSeq(seq));
   }
 
   // ------ Cura: combinações especiais (Taumaturgia) ------
@@ -874,6 +931,7 @@
     if(state.mode === "taumaturgia"){
       syncMagicSelect();
       const spell = currentSpellForSeq(s);
+      syncElementSelect(s, spell);
       if(!spell){
         actionsHint.textContent = "Nenhuma magia encontrada (isso não deveria acontecer).";
         return;
@@ -989,9 +1047,13 @@
       // ArtsMode não é necessário aqui (cada magia define se rola ou não)
       if(artsMode && artsMode.parentElement) artsMode.parentElement.style.display = "none";
 
-      if(resultTitle) resultTitle.textContent = spell.name;
-      if(resultTags) resultTags.textContent = `Taumaturgia • ${tagsLine(spell)} • Sequência: ${prettySeq(s)}`;
-      if(resultText) resultText.textContent = buildSpellText(spell, s);
+      const chosenEl = getChosenElement(s, spell);
+      syncElementSelect(s, spell);
+      const shownName = elementizeText(spell.name, chosenEl, spell.element);
+      if(resultTitle) resultTitle.textContent = shownName;
+      if(resultTags) resultTags.textContent = `Taumaturgia • ${tagsLine(spell, chosenEl)} • Sequência: ${prettySeq(s)}`;
+      if(resultText) resultText.textContent = buildSpellText(spell, s, chosenEl);
+
 
       const rm = spell.rollMode || "none";
       if(rollDamageBtn){
@@ -1225,6 +1287,17 @@
     state.selectedSpellBySeq[k] = magicSelect.value;
     renderActions();
     renderResult();
+
+
+  if(elementSelect) elementSelect.addEventListener("change", ()=>{
+    if(damageOut) damageOut.textContent = "—";
+    const s = seqKeys();
+    if(state.mode !== "taumaturgia" || s.length === 0) return;
+    const k = seqKey(s);
+    state.selectedElementBySeq[k] = elementSelect.value;
+    renderActions();
+    renderResult();
+  });
   });
 
   if(rollDamageBtn) rollDamageBtn.addEventListener("click", ()=> rollValue());

@@ -45,6 +45,23 @@
   };
 
   // =========================
+  // Servo safety (evita travar o site se algum patch antigo não tiver `state.servo`)
+  // =========================
+  function ensureServoState(){
+    if(!state.servo || typeof state.servo !== "object"){
+      state.servo = { active:false, np:0, npTurns:0, pendingCardKey:null, cooldowns: Object.create(null) };
+    }
+    if(typeof state.servo.active !== "boolean") state.servo.active = !!state.servo.active;
+    if(typeof state.servo.np !== "number" || !isFinite(state.servo.np)) state.servo.np = 0;
+    if(typeof state.servo.npTurns !== "number" || !isFinite(state.servo.npTurns)) state.servo.npTurns = 0;
+    if(!("pendingCardKey" in state.servo)) state.servo.pendingCardKey = null;
+    if(!state.servo.cooldowns || typeof state.servo.cooldowns !== "object"){
+      state.servo.cooldowns = Object.create(null);
+    }
+    return state.servo;
+  }
+
+  // =========================
   // DOM
   // =========================
   const deck = $("deck");
@@ -1331,6 +1348,7 @@ function syncMagicSelect(){
   }
 
   function canInvokeTesla(){
+    ensureServoState();
     const have = {
       quick: countHand("quick"),
       arts: countHand("arts"),
@@ -1353,21 +1371,24 @@ function syncMagicSelect(){
   }
 
   function setServoActive(active){
+    ensureServoState();
     state.servo.active = !!active;
     if(!active){
       state.servo.pendingCardKey = null;
       state.servo.npTurns = 0;
       state.servo.cooldowns = {};
     }
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
   }
 
   function addNP(n){
+    ensureServoState();
     state.servo.np = clamp((state.servo.np|0) + (n|0), 0, 20);
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
   }
 
   function tickTurn(){
+    ensureServoState();
     // decrement cooldowns & NP turns
     const cd = state.servo.cooldowns || {};
     Object.keys(cd).forEach(k=>{
@@ -1380,7 +1401,7 @@ function syncMagicSelect(){
       state.servo.npTurns = Math.max(0, state.servo.npTurns - 1);
     }
     state.turn = (state.turn|0) + 1;
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
   }
 
   function isOnCooldown(actionId){
@@ -1416,6 +1437,7 @@ function syncMagicSelect(){
   }
 
   function updateServoUI(){
+    ensureServoState();
     if(!servoStatus) return; // page without panel
     const inv = state.servo.active;
 
@@ -1502,7 +1524,7 @@ function syncMagicSelect(){
     renderHand();
     syncHandCount();
     refreshAll();
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
 
     if(servoOut) servoOut.textContent = "Invocação concluída: Archer Nikola Tesla entra em campo.";
   }
@@ -1568,7 +1590,7 @@ function syncMagicSelect(){
 
     // consume pending card key (servo can generate again later)
     state.servo.pendingCardKey = cardKey; // keep for convenience
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
   }
 
   function masterChargeNP(){
@@ -1609,7 +1631,7 @@ function syncMagicSelect(){
     lines.push("Custo: 20 NP (zerado).");
 
     if(servoOut) servoOut.textContent = lines.join("\n");
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
   }
 
 
@@ -1827,10 +1849,11 @@ if(state.mode === "volumen"){
   }
 
   function refreshAll(){
+    ensureServoState();
     renderSeq();
     renderActions();
     renderResult();
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
     if(modeHint){
       modeHint.textContent =
         (state.mode === "volumen")
@@ -1962,6 +1985,7 @@ if(state.mode === "volumen"){
   // Reset geral
   // =========================
   function resetAll(){
+    ensureServoState();
     state.hand = [];
     state.seq = [];
     state.selectedActionId = null;
@@ -1987,7 +2011,7 @@ if(state.mode === "volumen"){
   // =========================
   // Eventos
   // =========================
-  if(fillHandBtn) fillHandBtn.addEventListener("click", ()=>{ playClick(); tickTurn(); if(!state.servo.active) fillHand(); updateServoUI(); });
+  if(fillHandBtn) fillHandBtn.addEventListener("click", ()=>{ playClick(); tickTurn(); if(!state.servo.active) fillHand(); try{ updateServoUI(); }catch(e){ console.error(e); } });
   if(drawOneBtn) drawOneBtn.addEventListener("click", ()=>{ playClick(); if(state.servo.active) return; drawOne(); });
   if(resetBtn) resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
   if(clearSeqBtn) clearSeqBtn.addEventListener("click", ()=> clearSeq());
@@ -2033,7 +2057,7 @@ if(magicSelect) magicSelect.addEventListener("change", ()=>{
   // Servo events
   if(invokeTeslaBtn) invokeTeslaBtn.addEventListener("click", ()=> invokeTesla());
   if(dismissTeslaBtn) dismissTeslaBtn.addEventListener("click", ()=> dismissTesla());
-  if(servoCardSelect) servoCardSelect.addEventListener("change", ()=>{ state.servo.pendingCardKey = servoCardSelect.value; renderServoActionsForCard(state.servo.pendingCardKey); updateServoUI(); });
+  if(servoCardSelect) servoCardSelect.addEventListener("change", ()=>{ state.servo.pendingCardKey = servoCardSelect.value; renderServoActionsForCard(state.servo.pendingCardKey); try{ updateServoUI(); }catch(e){ console.error(e); } });
   if(servoDrawBtn) servoDrawBtn.addEventListener("click", ()=> servoDraw());
   if(servoActBtn) servoActBtn.addEventListener("click", ()=> servoAct());
   if(masterChargeNpBtn) masterChargeNpBtn.addEventListener("click", ()=> masterChargeNP());
@@ -2049,7 +2073,7 @@ if(magicSelect) magicSelect.addEventListener("change", ()=>{
     resetAll();
     fillHand();
     refreshAll();
-    updateServoUI();
+    try{ updateServoUI(); }catch(e){ console.error(e); }
   })();
 
 })();

@@ -333,3 +333,25 @@ a:hover{opacity:.9}
 
 /* Better readability for magic dropdown */
 #magicSelect, #elementSelect{min-width: 220px; font-size: 13px;}
+
+
+/* =========================
+   Servo (Nikola Tesla)
+   ========================= */
+.pillRow{display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; align-items:center}
+.small{font-size:12px}
+.servoPanel{margin-top:16px}
+.servoGrid{display:grid; grid-template-columns: 1fr 1.3fr; gap:14px}
+@media (max-width: 980px){
+  .servoGrid{grid-template-columns:1fr}
+}
+.servoBlock{background: rgba(0,0,0,0.18); border:1px solid var(--line); border-radius:14px; padding:12px}
+.blockTitle{font-weight:900; margin-bottom:6px}
+.buttonsRow{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+.row{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:10px}
+.lbl{min-width:120px; color:var(--muted); font-size:12px}
+.npInfo{margin-top:10px}
+#servoOut{white-space:pre-wrap; line-height:1.25}
+/* ensure native select menu readability on dark UIs */
+:root{color-scheme: dark;}
+select.select, select, option{background-color:#0f141b; color:#e8eef7;}

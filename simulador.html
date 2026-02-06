@@ -184,6 +184,65 @@
         </div>
       </div>
     </section>
+
+    <section class="panel servoPanel" id="servoPanel">
+      <div class="panelHead">
+        <div>
+          <div class="panelTitle">Servo — Archer Nikola Tesla</div>
+          <div class="panelSub">Invocação por padrão de cartas na mão • Ações do servo usam 1 carta (gerada) e enviam essa carta para sua mão.</div>
+        </div>
+        <div class="pillRow">
+          <span id="servoStatus" class="pill">Não invocado</span>
+          <span id="npPill" class="pill">NP: <strong id="npValue">0</strong>/20</span>
+          <span id="npActivePill" class="pill muted" style="display:none">NP ativo: <strong id="npTurns">0</strong> turnos</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="servoGrid">
+        <div class="servoBlock">
+          <div class="blockTitle">Invocação</div>
+          <div class="muted small">Requer na mão: <strong>1 Quick</strong>, <strong>2 Arts</strong>, <strong>2 Buster</strong>. Ao invocar, consome as 5 cartas.</div>
+          <div class="buttonsRow">
+            <button id="invokeTeslaBtn" class="btn">Invocar Tesla (consome 5 cartas)</button>
+            <button id="dismissTeslaBtn" class="btn ghost" disabled>Recuar Servo</button>
+          </div>
+          <div id="invokeHint" class="hint small">—</div>
+        </div>
+
+        <div class="servoBlock">
+          <div class="blockTitle">Ação do Servo</div>
+
+          <div class="row">
+            <div class="lbl">Carta do Servo</div>
+            <select id="servoCardSelect" class="select">
+              <option value="buster">Buster</option>
+              <option value="arts">Arts</option>
+              <option value="quick">Quick</option>
+            </select>
+            <button id="servoDrawBtn" class="btn" disabled>Sacar 1 carta (Servo)</button>
+          </div>
+
+          <div class="row">
+            <div class="lbl">Ação</div>
+            <select id="servoActionSelect" class="select" disabled></select>
+            <button id="servoActBtn" class="btn" disabled>Executar ação</button>
+          </div>
+
+          <div class="row">
+            <button id="masterChargeNpBtn" class="btn ghost" disabled>Mestre: converter 1 Arts em +1 NP</button>
+            <button id="castNpBtn" class="btn" disabled>Lançar Noble Phantasm (20 NP)</button>
+          </div>
+
+          <div class="npInfo">
+            <div id="npStateText" class="muted small">Invocação ativa muda o fluxo: o saque normal pode ser pausado pelo mestre da mesa.</div>
+            <pre id="servoOut" class="mono small">—</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <footer class="foot">

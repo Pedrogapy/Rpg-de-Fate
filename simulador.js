@@ -74,6 +74,31 @@
   const executeBtn = $("executeBtn");
   const damageOut = $("damageOut");
 
+
+  // =========================
+  // Servo (Nikola Tesla)
+  // =========================
+  const servoStatus = $("servoStatus");
+  const npValue = $("npValue");
+  const npActivePill = $("npActivePill");
+  const npTurns = $("npTurns");
+
+  const invokeTeslaBtn = $("invokeTeslaBtn");
+  const dismissTeslaBtn = $("dismissTeslaBtn");
+  const invokeHint = $("invokeHint");
+
+  const servoCardSelect = $("servoCardSelect");
+  const servoDrawBtn = $("servoDrawBtn");
+  const servoActionSelect = $("servoActionSelect");
+  const servoActBtn = $("servoActBtn");
+
+  const masterChargeNpBtn = $("masterChargeNpBtn");
+  const castNpBtn = $("castNpBtn");
+
+  const npStateText = $("npStateText");
+  const servoOut = $("servoOut");
+
+
   // =========================
   // Som (WebAudio simples)
   // =========================
@@ -1201,6 +1226,384 @@ function syncMagicSelect(){
     const id = `${state.mode}:${seqKey(seq)}`;
     return ACTIONS[state.mode].get(id) || null;
   }
+  // =========================
+  // Servo — Archer Nikola Tesla
+  // =========================
+  const TESLA = {
+    mana: 5,
+    invokeReq: { quick: 1, arts: 2, buster: 2 },
+    actions: {
+      buster: [
+        {
+          id: "tesla_buster_punch",
+          name: "Punho Eletrificado",
+          type: "Dano",
+          tags: "elemento: Raio • alvo único",
+          cd: 0,
+          roll: () => {
+            const rolls = [randInt(1,8), randInt(1,8), randInt(1,8)];
+            const sum = rolls.reduce((a,b)=>a+b,0) + TESLA.mana;
+            return { text: `3d8 + Mana(+${TESLA.mana}) = [${rolls.join(", ")}] + ${TESLA.mana} (total ${sum})`, total: sum };
+          },
+          result: "Tesla avança e desfere um soco carregado de eletricidade, marcando o alvo com corrente residual (narrativo)."
+        },
+        {
+          id: "tesla_buster_thunder",
+          name: "Raio Redirecionado",
+          type: "Dano",
+          tags: "elemento: Raio • alvo único • escala com NP",
+          cd: 0,
+          roll: () => {
+            const rolls = [randInt(1,10), randInt(1,10)];
+            const base = rolls.reduce((a,b)=>a+b,0);
+            const sum = base + state.servo.np;
+            return { text: `2d10 + NP(${state.servo.np}) = [${rolls.join(", ")}] + ${state.servo.np} (total ${sum})`, total: sum };
+          },
+          result: "Tesla dispara um raio para o alto; a descarga é redirecionada e cai com precisão sobre o alvo."
+        }
+      ],
+      arts: [
+        {
+          id: "tesla_arts_beam",
+          name: "Feixe Paralisante",
+          type: "Dano",
+          tags: "elemento: Raio • chance de paralisar • CD 12",
+          cd: 12,
+          roll: () => {
+            const rolls = [randInt(1,8), randInt(1,8)];
+            const dmg = rolls[0]+rolls[1];
+            const check = randInt(1,20);
+            const ok = check >= 16; // chance simples e moderada
+            return { text: `2d8 = [${rolls.join(", ")}] (total ${dmg}) | Paralisia: 1d20=${check} ${ok ? "✅ (paralisa 1 turno)" : "❌"}`, total: dmg, extra: ok };
+          },
+          result: "Tesla dispara um feixe concentrado de energia. Se a paralisia acontecer, o alvo perde 1 ação/turno (a critério da mesa)."
+        },
+        {
+          id: "tesla_arts_charge",
+          name: "Carregar NP (+2)",
+          type: "Suporte",
+          tags: "carrega NP • 2 pontos",
+          cd: 0,
+          roll: () => {
+            return { text: `NP +2`, total: 0 };
+          },
+          apply: () => addNP(2),
+          result: "Tesla concentra energia e carrega sua energia espiritual para o Noble Phantasm."
+        }
+      ],
+      quick: [
+        {
+          id: "tesla_quick_cone",
+          name: "Cone Elétrico",
+          type: "Dano",
+          tags: "área • até 3 alvos • crítico 18+",
+          cd: 0,
+          roll: () => {
+            const n = clamp(parseInt(targetsCount && targetsCount.value,10) || 2, 1, 3);
+            const per = [];
+            let grand = 0;
+            for(let t=0;t<n;t++){
+              const r1 = randInt(1,6), r2 = randInt(1,6);
+              const sum = r1+r2;
+              grand += sum;
+              const crit = randInt(1,20);
+              const isCrit = crit >= 18;
+              per.push(`Alvo ${t+1}: 2d6=[${r1},${r2}] (${sum}) | crit 1d20=${crit}${isCrit?" ✅":" ❌"}`);
+            }
+            return { text: `${n} alvo(s)\n${per.join("\n")}\nTotal dano (soma): ${grand}`, total: grand };
+          },
+          result: "Tesla dispara energia em cone à frente, atingindo múltiplos alvos. Em crítico (18+), descreva como fulgor perfurante."
+        }
+      ]
+    }
+  };
+
+  function countHand(key){
+    return state.hand.reduce((acc,c)=>acc+(c.key===key?1:0), 0);
+  }
+
+  function canInvokeTesla(){
+    const have = {
+      quick: countHand("quick"),
+      arts: countHand("arts"),
+      buster: countHand("buster"),
+    };
+    const need = TESLA.invokeReq;
+    const ok = have.quick>=need.quick && have.arts>=need.arts && have.buster>=need.buster;
+    return { ok, have, need };
+  }
+
+  function removeCardsFromHand(key, n){
+    let left = n;
+    for(let i=state.hand.length-1; i>=0 && left>0; i--){
+      if(state.hand[i].key === key){
+        state.hand.splice(i,1);
+        left--;
+      }
+    }
+    return left===0;
+  }
+
+  function setServoActive(active){
+    state.servo.active = !!active;
+    if(!active){
+      state.servo.pendingCardKey = null;
+      state.servo.npTurns = 0;
+      state.servo.cooldowns = {};
+    }
+    updateServoUI();
+  }
+
+  function addNP(n){
+    state.servo.np = clamp((state.servo.np|0) + (n|0), 0, 20);
+    updateServoUI();
+  }
+
+  function tickTurn(){
+    // decrement cooldowns & NP turns
+    const cd = state.servo.cooldowns || {};
+    Object.keys(cd).forEach(k=>{
+      cd[k] = Math.max(0, (cd[k]|0) - 1);
+      if(cd[k]===0) delete cd[k];
+    });
+    state.servo.cooldowns = cd;
+
+    if(state.servo.npTurns > 0){
+      state.servo.npTurns = Math.max(0, state.servo.npTurns - 1);
+    }
+    state.turn = (state.turn|0) + 1;
+    updateServoUI();
+  }
+
+  function isOnCooldown(actionId){
+    return (state.servo.cooldowns && state.servo.cooldowns[actionId]) ? state.servo.cooldowns[actionId] : 0;
+  }
+
+  function putOnCooldown(action){
+    if(!action || !action.cd) return;
+    state.servo.cooldowns[action.id] = action.cd;
+  }
+
+  function renderServoActionsForCard(cardKey){
+    if(!servoActionSelect) return;
+    servoActionSelect.innerHTML = "";
+    const list = (TESLA.actions[cardKey] || []);
+    list.forEach((a, idx)=>{
+      const opt = document.createElement("option");
+      const cdLeft = isOnCooldown(a.id);
+      opt.value = a.id;
+      opt.textContent = cdLeft>0 ? `${a.name} (CD ${cdLeft})` : a.name;
+      opt.disabled = (cdLeft>0);
+      servoActionSelect.appendChild(opt);
+    });
+    servoActionSelect.disabled = !state.servo.active || list.length===0;
+    if(servoActBtn) servoActBtn.disabled = !state.servo.active || list.length===0;
+  }
+
+  function getSelectedTeslaAction(){
+    const cardKey = state.servo.pendingCardKey || (servoCardSelect ? servoCardSelect.value : "buster");
+    const list = TESLA.actions[cardKey] || [];
+    const id = servoActionSelect ? servoActionSelect.value : (list[0] ? list[0].id : null);
+    return list.find(a=>a.id===id) || list[0] || null;
+  }
+
+  function updateServoUI(){
+    if(!servoStatus) return; // page without panel
+    const inv = state.servo.active;
+
+    servoStatus.textContent = inv ? "Invocado" : "Não invocado";
+    servoStatus.classList.toggle("muted", !inv);
+
+    if(npValue) npValue.textContent = String(state.servo.np|0);
+
+    const npActive = (state.servo.npTurns|0) > 0;
+    if(npActivePill){
+      npActivePill.style.display = npActive ? "" : "none";
+    }
+    if(npTurns) npTurns.textContent = String(state.servo.npTurns|0);
+
+    const invInfo = canInvokeTesla();
+    if(invokeTeslaBtn) invokeTeslaBtn.disabled = inv || !invInfo.ok;
+    if(dismissTeslaBtn) dismissTeslaBtn.disabled = !inv;
+
+    if(invokeHint){
+      if(inv){
+        invokeHint.textContent = "Tesla está em campo. O servo pode gerar 1 carta por ação e agir na sua vez.";
+      } else {
+        const miss = [];
+        if(invInfo.have.quick < invInfo.need.quick) miss.push(`Quick faltando: ${invInfo.need.quick - invInfo.have.quick}`);
+        if(invInfo.have.arts < invInfo.need.arts) miss.push(`Arts faltando: ${invInfo.need.arts - invInfo.have.arts}`);
+        if(invInfo.have.buster < invInfo.need.buster) miss.push(`Buster faltando: ${invInfo.need.buster - invInfo.have.buster}`);
+        invokeHint.textContent = invInfo.ok ? "Pronto para invocar." : ("Para invocar: " + (miss.join(" • ") || "—"));
+      }
+    }
+
+    // Servo action controls
+    if(servoDrawBtn) servoDrawBtn.disabled = !inv;
+    if(servoCardSelect) servoCardSelect.disabled = !inv;
+
+    // If no pending card key, set from select
+    if(inv && !state.servo.pendingCardKey){
+      state.servo.pendingCardKey = (servoCardSelect ? servoCardSelect.value : "buster");
+    }
+    if(inv){
+      renderServoActionsForCard(state.servo.pendingCardKey);
+    } else {
+      if(servoActionSelect){
+        servoActionSelect.innerHTML = "";
+        servoActionSelect.disabled = true;
+      }
+      if(servoActBtn) servoActBtn.disabled = true;
+    }
+
+    // Master charge + NP cast
+    const masterHasArts = countHand("arts") > 0;
+    if(masterChargeNpBtn) masterChargeNpBtn.disabled = !masterHasArts || (state.servo.np|0) >= 20;
+    if(castNpBtn) castNpBtn.disabled = !inv || (state.servo.np|0) < 20;
+
+    if(npStateText){
+      const parts = [];
+      parts.push(`Turno: ${state.turn|0}`);
+      parts.push(`NP: ${state.servo.np|0}/20`);
+      if(npActive){
+        parts.push(`NP ativo por mais ${state.servo.npTurns|0} turno(s) • vantagem em acertos (narrativo/regras da mesa)`);
+      } else {
+        parts.push("NP não ativo.");
+      }
+      npStateText.textContent = parts.join(" • ");
+    }
+
+    // Optional: pause normal draw buttons while invoked (regra do usuário)
+    if(fillHandBtn) fillHandBtn.disabled = inv;
+    if(drawOneBtn) drawOneBtn.disabled = inv;
+  }
+
+  function invokeTesla(){
+    const info = canInvokeTesla();
+    if(!info.ok) return;
+
+    playClick();
+    // consume required cards
+    removeCardsFromHand("quick", 1);
+    removeCardsFromHand("arts", 2);
+    removeCardsFromHand("buster", 2);
+
+    setServoActive(true);
+    state.servo.pendingCardKey = (servoCardSelect ? servoCardSelect.value : "buster");
+
+    renderHand();
+    syncHandCount();
+    refreshAll();
+    updateServoUI();
+
+    if(servoOut) servoOut.textContent = "Invocação concluída: Archer Nikola Tesla entra em campo.";
+  }
+
+  function dismissTesla(){
+    if(!state.servo.active) return;
+    playClick();
+    setServoActive(false);
+    refreshAll();
+    if(servoOut) servoOut.textContent = "Tesla recuou. Saque normal liberado.";
+  }
+
+  function servoDraw(){
+    if(!state.servo.active) return;
+    playClick();
+    const k = (servoCardSelect ? servoCardSelect.value : "buster");
+    state.servo.pendingCardKey = k;
+    renderServoActionsForCard(k);
+    if(servoOut) servoOut.textContent = `Tesla gerou uma carta: ${cardByKey(k).label}. Escolha uma ação e execute.`;
+  }
+
+  function servoAct(){
+    if(!state.servo.active) return;
+    const cardKey = state.servo.pendingCardKey || (servoCardSelect ? servoCardSelect.value : "buster");
+    const action = getSelectedTeslaAction();
+    if(!action) return;
+
+    const cdLeft = isOnCooldown(action.id);
+    if(cdLeft>0){
+      if(servoOut) servoOut.textContent = `Em cooldown: ${action.name} (faltam ${cdLeft} turno[s]).`;
+      return;
+    }
+
+    playRoll();
+
+    // perform roll and apply
+    const rolled = action.roll ? action.roll() : { text:"—", total:0 };
+    if(action.apply) action.apply();
+    putOnCooldown(action);
+
+    // add the servo card to master's hand (if possible)
+    const c = cardByKey(cardKey);
+    const added = addToHand(c);
+    renderHand();
+    syncHandCount();
+
+    const lines = [];
+    lines.push(`${action.name} — ${action.type}`);
+    lines.push(`Carta do Servo: ${c.label} (entra na sua mão após a ação)`);
+    lines.push(`Tags: ${action.tags}${action.cd?` • CD ${action.cd}`:""}`);
+    lines.push("");
+    lines.push("Como acontece:");
+    lines.push(action.result);
+    lines.push("");
+    lines.push("Rolagem:");
+    lines.push(rolled.text);
+    if(!added){
+      lines.push("");
+      lines.push("Obs.: sua mão está cheia; a carta do Servo não pôde ser adicionada.");
+    }
+
+    if(servoOut) servoOut.textContent = lines.join("\n");
+
+    // consume pending card key (servo can generate again later)
+    state.servo.pendingCardKey = cardKey; // keep for convenience
+    updateServoUI();
+  }
+
+  function masterChargeNP(){
+    // consumes 1 Arts from master's hand and adds +1 NP
+    if(state.servo.np >= 20) return;
+    const idx = state.hand.findIndex(c=>c.key==="arts");
+    if(idx<0) return;
+    playClick();
+    state.hand.splice(idx,1);
+    addNP(1);
+    renderHand();
+    syncHandCount();
+    refreshAll();
+    if(servoOut) servoOut.textContent = "Mestre converteu 1 carta Arts em +1 NP.";
+  }
+
+  function castNoblePhantasm(){
+    if(!state.servo.active) return;
+    if(state.servo.np < 20) return;
+
+    playRoll();
+    const rolls = [randInt(1,10), randInt(1,10), randInt(1,10), randInt(1,10)];
+    const dmg = rolls.reduce((a,b)=>a+b,0);
+    const dur = randInt(1,4) + 2;
+
+    // spend NP
+    state.servo.np = 0;
+    state.servo.npTurns = dur;
+
+    const lines = [];
+    lines.push("Noble Phantasm — Sistema Keraunos");
+    lines.push("");
+    lines.push("Tesla cria um campo repleto de bobinas e assume controle eletromagnético elevado.");
+    lines.push("Enquanto ativo: vantagem em testes de acerto (conforme regras da mesa).");
+    lines.push("");
+    lines.push(`Duração: 1d4 + 2 = ${dur} turno(s)`);
+    lines.push(`Dano: 4d10 = [${rolls.join(", ")}] (total ${dmg})`);
+    lines.push("Custo: 20 NP (zerado).");
+
+    if(servoOut) servoOut.textContent = lines.join("\n");
+    updateServoUI();
+  }
+
 
   // =========================
   // Render técnicas
@@ -1419,6 +1822,7 @@ if(state.mode === "volumen"){
     renderSeq();
     renderActions();
     renderResult();
+    updateServoUI();
     if(modeHint){
       modeHint.textContent =
         (state.mode === "volumen")
@@ -1575,8 +1979,8 @@ if(state.mode === "volumen"){
   // =========================
   // Eventos
   // =========================
-  if(fillHandBtn) fillHandBtn.addEventListener("click", ()=>{ playClick(); fillHand(); });
-  if(drawOneBtn) drawOneBtn.addEventListener("click", ()=>{ playClick(); drawOne(); });
+  if(fillHandBtn) fillHandBtn.addEventListener("click", ()=>{ playClick(); tickTurn(); if(!state.servo.active) fillHand(); updateServoUI(); });
+  if(drawOneBtn) drawOneBtn.addEventListener("click", ()=>{ playClick(); if(state.servo.active) return; drawOne(); });
   if(resetBtn) resetBtn.addEventListener("click", ()=>{ playClick(); resetAll(); });
   if(clearSeqBtn) clearSeqBtn.addEventListener("click", ()=> clearSeq());
 
@@ -1618,6 +2022,16 @@ if(magicSelect) magicSelect.addEventListener("change", ()=>{
   if(rollDamageBtn) rollDamageBtn.addEventListener("click", ()=> rollValue());
   if(executeBtn) executeBtn.addEventListener("click", ()=> executeAction());
 
+  // Servo events
+  if(invokeTeslaBtn) invokeTeslaBtn.addEventListener("click", ()=> invokeTesla());
+  if(dismissTeslaBtn) dismissTeslaBtn.addEventListener("click", ()=> dismissTesla());
+  if(servoCardSelect) servoCardSelect.addEventListener("change", ()=>{ state.servo.pendingCardKey = servoCardSelect.value; renderServoActionsForCard(state.servo.pendingCardKey); updateServoUI(); });
+  if(servoDrawBtn) servoDrawBtn.addEventListener("click", ()=> servoDraw());
+  if(servoActBtn) servoActBtn.addEventListener("click", ()=> servoAct());
+  if(masterChargeNpBtn) masterChargeNpBtn.addEventListener("click", ()=> masterChargeNP());
+  if(castNpBtn) castNpBtn.addEventListener("click", ()=> castNoblePhantasm());
+
+
   // =========================
   // Init
   // =========================
@@ -1627,6 +2041,7 @@ if(magicSelect) magicSelect.addEventListener("change", ()=>{
     resetAll();
     fillHand();
     refreshAll();
+    updateServoUI();
   })();
 
 })();

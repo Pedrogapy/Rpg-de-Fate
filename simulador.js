@@ -407,6 +407,30 @@
     return lines.join("\n");
   }
 
+function buildVolumenSpellText(spell, seq){
+  const main = seq[0];
+  const rt = { ...(defaultReachTargetsByMain(main)), ...(spell.reach?{reach:spell.reach}:{}), ...(spell.targets?{targets:spell.targets}:{}) };
+
+  const lines = [];
+  lines.push(`Conjuração: 1 ação (comando ao familiar)`);
+  lines.push(`Modo: Volumen Hydrargyrum`);
+  lines.push(`Sequência: ${prettySeq(seq)}`);
+  lines.push(`Alcance: ${rt.reach}`);
+  lines.push(`Alvos: ${rt.targets}`);
+  lines.push(`Cooldown: ${spell.cd}`);
+  lines.push("");
+  lines.push("Como a ação acontece:");
+  (spell.how || []).forEach(x=>lines.push(x));
+  lines.push("");
+  lines.push("Resultado (o que isso faz na cena):");
+  lines.push(spell.result || "—");
+  lines.push("");
+  lines.push("Valor:");
+  lines.push(valueLine(spell.rollMode, seq));
+  return lines.join("\n");
+}
+
+
   // Gera 8–12 magias por sequência (modelo C)
   function buildTaumaturgySpellsForSeq(seq){
     const sk = seqKey(seq);
@@ -626,6 +650,249 @@
     return list;
   }
 
+
+// =========================
+// Volumen — 8–12 ações por sequência (modelo C)
+// =========================
+function buildVolumenSpellsForSeq(seq){
+  const sk = seqKey(seq);
+  const seed0 = hashStr("vol:" + sk);
+  const main = seq[0];
+
+  const cdA = cdFrom(seed0);
+  const cdB = cdFrom(seed0 + 5);
+  const cdC = cdFrom(seed0 + 11);
+
+  const list = [];
+
+  // Helpers de narrativa (Volumen = mercúrio vivo, versátil e físico/tático)
+  const formLine = (what)=>`O Volumen se molda em ${what}, mantendo o brilho metálico e a fluidez sob comando.`;
+  const flowLine = (what)=>`O mercúrio flui ${what}, contornando obstáculos e buscando ângulos.`;
+  const snapLine = (what)=>`A massa se condensa ${what}, ganhando impacto e estabilidade.`;
+
+  if(main === "buster"){
+    list.push(makeSpell(`${sk}:impulse`, {
+      name:"Martelo de Mercúrio", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdA,
+      rollMode:"buster",
+      how:[snapLine("num martelo curto"),"O golpe busca um ponto fraco em curto alcance."],
+      result:"Impacto concentrado em um alvo. Pode quebrar cobertura frágil/empurrar (narrativo)."
+    }));
+    list.push(makeSpell(`${sk}:lance`, {
+      name:"Lança Hidráulica", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdB,
+      rollMode:"buster",
+      how:[snapLine("num jato rígido em forma de lança"),"O Volumen perfura com pressão."],
+      result:"Perfuração em alvo único. Bom contra armaduras leves e pontos expostos (narrativo)."
+    }));
+    list.push(makeSpell(`${sk}:guardbreak`, {
+      name:"Ruptura Direcional", type:"Debuff", kind:"Ataque", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+2),
+      rollMode:"buster",
+      how:[snapLine("num golpe diagonal"),"O impacto vem de um ângulo difícil."],
+      result:"Dano em alvo único e abre uma brecha (debuff leve: piora defesa/posicionamento por instantes)."
+    }));
+    list.push(makeSpell(`${sk}:pin`, {
+      name:"Pino de Contenção", type:"Controle", kind:"Captura", element:"Mercúrio", rune:false, support:true, cd: cdC,
+      rollMode:"none",
+      how:[snapLine("num pino/gancho"),"O Volumen prende roupa, arma ou membro por um instante."],
+      result:"Controle leve: prende/ancora o alvo por um momento ou força gastar ação para se soltar (sem paralisar)."
+    }));
+    list.push(makeSpell(`${sk}:anchor`, {
+      name:"Âncora de Massa", type:"Controle", kind:"Terreno", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+3),
+      rollMode:"none",
+      reach:"curta a média (à vista)",
+      targets:"zona pequena",
+      how:[formLine("uma estaca/chumbo líquido no chão"),"Ele aumenta atrito e ‘puxa’ o terreno para baixo."],
+      result:"Cria âncora de terreno: dificulta avanço e estabiliza aliados contra empurrões (controle leve a médio)."
+    }));
+    list.push(makeSpell(`${sk}:tool`, {
+      name:"Ferramenta Condensada", type:"Utilidade", kind:"Utilidade", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+4),
+      rollMode:"none",
+      how:[formLine("uma chave, gancho ou lâmina de precisão"),"Útil para cortar cordas, abrir travas simples, escalar."],
+      result:"Utilidade ampla para exploração e emergências."
+    }));
+    list.push(makeSpell(`${sk}:mantle`, {
+      name:"Revestimento Metálico", type:"Defesa", kind:"Suporte", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+5),
+      rollMode:"shield",
+      reach:"curta (toque/à vista)",
+      targets:"1 aliado",
+      how:[formLine("uma película fina sobre o corpo/armadura"),"Ela desvia impacto e reduz cortes leves."],
+      result:"Escudo/mitigação breve para um aliado. Não é armadura permanente."
+    }));
+    if(seq.includes("quick")){
+      list.push(makeSpell(`${sk}:ricochet`, {
+        name:"Impacto em Cadeia", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdFrom(seed0+6),
+        rollMode:"buster",
+        how:[snapLine("num golpe que ‘quica’"),"Parte da massa se separa para pressionar um segundo ângulo (narrativo)."],
+        result:"Dano em alvo único com alcance mais flexível e pressão tática."
+      }));
+    }
+    if(seq.includes("arts")){
+      list.push(makeSpell(`${sk}:grip`, {
+        name:"Braçadeira de Precisão", type:"Controle", kind:"Captura", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+7),
+        rollMode:"none",
+        how:[formLine("uma braçadeira que fecha em torno do alvo"),"Forma estável e segura por pouco tempo."],
+        result:"Controle médio: segura arma/membro/objeto por instantes. Alvos fortes podem romper, mas perdem ritmo."
+      }));
+    }
+  }
+
+  if(main === "quick"){
+    list.push(makeSpell(`${sk}:needles`, {
+      name:"Enxame de Agulhas", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdA,
+      rollMode:"quick",
+      how:[flowLine("em múltiplas agulhas finas"),"Ele cobre a área e pune quem atravessa."],
+      result:"Dano em área (múltiplos alvos). Bom para punir agrupamentos e movimento."
+    }));
+    list.push(makeSpell(`${sk}:sweep`, {
+      name:"Varredura Metálica", type:"Debuff", kind:"Ataque", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+2),
+      rollMode:"quick",
+      how:[flowLine("como uma lâmina larga"),"A varredura mira pés/apoios e quebra postura."],
+      result:"Dano em área e debuff leve: piora footing/reações por instantes."
+    }));
+    list.push(makeSpell(`${sk}:net`, {
+      name:"Rede Fluida", type:"Controle", kind:"Captura", element:"Mercúrio", rune:false, support:true, cd: cdB,
+      rollMode:"none",
+      how:[flowLine("como uma rede"),"A rede tenta envolver sem travar totalmente."],
+      result:"Controle leve: reduz mobilidade e força gastar ação para romper/escapar (sem stun)."
+    }));
+    list.push(makeSpell(`${sk}:wall`, {
+      name:"Parede Móvel", type:"Defesa", kind:"Escudo", element:"Mercúrio", rune:false, support:true, cd: cdC,
+      rollMode:"shield",
+      how:[formLine("placas interligadas"),"A parede desliza acompanhando a linha de ataque."],
+      result:"Escudo/parede curta que absorve dano e cria cobertura por um instante."
+    }));
+    list.push(makeSpell(`${sk}:bridge`, {
+      name:"Passarela Rápida", type:"Utilidade", kind:"Terreno", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+3),
+      rollMode:"none",
+      reach:"à vista",
+      targets:"zona/obstáculo",
+      how:[formLine("uma passarela fina"),"O Volumen sustenta por pouco tempo para travessia."],
+      result:"Cria caminho temporário (pular buracos, subir, atravessar)."
+    }));
+    list.push(makeSpell(`${sk}:decoy`, {
+      name:"Reflexo Enganoso", type:"Controle", kind:"Utilidade", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+4),
+      rollMode:"none",
+      how:[formLine("um espelho brilhante/placa curva"),"O reflexo atrapalha leitura de distância e timing."],
+      result:"Controle leve: dificulta mira/linha de visão por instantes (sem cegar total)."
+    }));
+    list.push(makeSpell(`${sk}:drag`, {
+      name:"Arrasto de Atrito", type:"Controle", kind:"Terreno", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+5),
+      rollMode:"none",
+      reach:"zona escolhida à vista",
+      targets:"zona pequena",
+      how:[flowLine("pelo chão como filme fino"),"Ele cria atrito e puxa passos para fora do ritmo."],
+      result:"Controle de área leve a médio (ótimo para corredores e gargalos)."
+    }));
+    if(seq.includes("buster")){
+      list.push(makeSpell(`${sk}:storm`, {
+        name:"Tempestade Condensada", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdFrom(seed0+6),
+        rollMode:"quick",
+        how:[flowLine("em fragmentos mais pesados"),"A dispersão ganha força bruta graças ao Buster no combo."],
+        result:"Dano em área com mais dados (pela regra Quick+Buster)."
+      }));
+    }
+    if(seq.includes("arts")){
+      list.push(makeSpell(`${sk}:map`, {
+        name:"Mapa Tático Vivo", type:"Utilidade", kind:"Detecção", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+7),
+        rollMode:"none",
+        how:[formLine("fios finos no chão/parede"),"Ele sente vibração e retorna informação ao Sebastian."],
+        result:"Detecção média: percebe movimento aproximado e rotas (não revela tudo)."
+      }));
+    }
+  }
+
+  if(main === "arts"){
+    list.push(makeSpell(`${sk}:plate`, {
+      name:"Escudo de Placas", type:"Defesa", kind:"Escudo", element:"Mercúrio", rune:false, support:true, cd: cdA,
+      rollMode:"shield",
+      how:[formLine("placas sobrepostas"),"O Volumen distribui impacto e fecha frestas."],
+      result:"Escudo/defesa curta que absorve dano (protege um aliado)."
+    }));
+    list.push(makeSpell(`${sk}:cocoon`, {
+      name:"Cúpula de Proteção", type:"Defesa", kind:"Escudo", element:"Mercúrio", rune:false, support:true, cd: cdB,
+      rollMode:"shield",
+      how:[formLine("uma meia-cúpula"),"Ela cobre uma direção e reduz estilhaços/projéteis."],
+      result:"Cobertura/escudo em zona pequena por instantes (não é prisão)."
+    }));
+    list.push(makeSpell(`${sk}:clamp`, {
+      name:"Bandagem de Estabilização", type:"Cura", kind:"Cura", element:"Mercúrio", rune:false, support:true, cd: cdC,
+      rollMode:"heal",
+      reach:"curta a média (à vista)",
+      targets:"1 aliado",
+      how:[formLine("faixas metálicas finas"),"Ele comprime e estanca sangramento/segura fraturas."],
+      result:"Estabiliza e recupera (cura mecânica). Não é milagre: é suporte físico eficiente."
+    }));
+    list.push(makeSpell(`${sk}:bind`, {
+      name:"Amarra de Mercúrio", type:"Controle", kind:"Captura", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+2),
+      rollMode:"none",
+      how:[formLine("fios que enrolam"),"O alvo pode romper, mas perde tempo e postura."],
+      result:"Controle médio: reduz mobilidade/alcance por instantes (não impede servo de agir)."
+    }));
+    list.push(makeSpell(`${sk}:sensor`, {
+      name:"Sensor Vibracional", type:"Utilidade", kind:"Detecção", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+3),
+      rollMode:"none",
+      how:["O Volumen se espalha em microfilamentos.","Ele retorna informações por vibração/eco."],
+      result:"Detecção: percebe aproximação, passos e impacto; útil contra emboscadas e truques simples."
+    }));
+    list.push(makeSpell(`${sk}:toolkit`, {
+      name:"Kit de Campo", type:"Utilidade", kind:"Utilidade", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+4),
+      rollMode:"none",
+      how:[formLine("ferramentas de precisão"),"Ações rápidas: cortar, abrir, selar, montar suporte."],
+      result:"Utilidade ampla para exploração e emergências."
+    }));
+    list.push(makeSpell(`${sk}:edge`, {
+      name:"Fio Cortante", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdFrom(seed0+5),
+      rollMode:"arts",
+      how:[flowLine("num fio rígido e rápido"),"Ataque seco: sem efeito extra."],
+      result:"Dano leve (sem efeito)."
+    }));
+    list.push(makeSpell(`${sk}:bolt`, {
+      name:"Projétil Metálico", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdFrom(seed0+6),
+      rollMode:"arts",
+      how:[snapLine("em um projétil"),"Ataque rápido e preciso."],
+      result:"Dano leve (sem efeito)."
+    }));
+    if(seq.includes("quick")){
+      list.push(makeSpell(`${sk}:zone`, {
+        name:"Trama de Contenção", type:"Controle", kind:"Terreno", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0+7),
+        rollMode:"none",
+        reach:"zona escolhida à vista",
+        targets:"zona pequena",
+        how:[formLine("uma malha no chão"),"Ela cria atrito e ‘puxa’ passos para fora do ritmo."],
+        result:"Controle de área leve a médio. Ótimo para gargalos."
+      }));
+    }
+    if(seq.includes("buster")){
+      list.push(makeSpell(`${sk}:ram`, {
+        name:"Aríete de Prata", type:"Dano", kind:"Ataque", element:"Mercúrio", rune:false, support:false, cd: cdFrom(seed0+8),
+        rollMode:"buster",
+        how:[snapLine("num aríete curto"),"O golpe é guiado para arrebentar cobertura frágil."],
+        result:"Dano em alvo único ou em obstáculo/cobertura (narrativo)."
+      }));
+    }
+  }
+
+  while(list.length > 12) list.pop();
+  while(list.length < 8){
+    list.push(makeSpell(`${sk}:extra${list.length}`, {
+      name:`Aplicação Fluida ${list.length+1}`, type:"Utilidade", kind:"Utilidade", element:"Mercúrio", rune:false, support:true, cd: cdFrom(seed0 + list.length),
+      rollMode:"none",
+      how:["O Volumen executa uma aplicação simples e segura.","Forma pequena, controle rápido, sem exagero."],
+      result:"Utilidade genérica coerente com a cena (cobertura, travessia, distração, suporte)."
+    }));
+  }
+
+  return list;
+}
+
+const VOL_SPELL_CACHE = new Map();
+function volumenSpellsForSeq(seq){
+  const k = seqKey(seq);
+  if(VOL_SPELL_CACHE.has(k)) return VOL_SPELL_CACHE.get(k);
+  const v = buildVolumenSpellsForSeq(seq);
+  VOL_SPELL_CACHE.set(k, v);
+  return v;
+}
+
   // Cache por sequência
   const TAU_SPELL_CACHE = new Map();
   function taumaturgySpellsForSeq(seq){
@@ -636,44 +903,65 @@
     return v;
   }
 
-  function currentSpellForSeq(seq){
-    if(state.mode !== "taumaturgia") return null;
-    if(seq.length===0) return null;
-    const k = seqKey(seq);
+  
+function currentSpellForSeq(seq){
+  if(seq.length===0) return null;
+  const k = seqKey(seq);
+
+  if(state.mode === "taumaturgia"){
     const options = taumaturgySpellsForSeq(seq);
-    const chosenId = state.selectedSpellBySeq[k];
+    const chosenId = state.selectedSpellBySeq["taumaturgia:"+k];
     return options.find(s=>s.id===chosenId) || options[0] || null;
   }
 
-  function syncMagicSelect(){
-    if(!magicSelect) return;
-    const seq = seqKeys();
-    const show = (state.mode === "taumaturgia") && seq.length>0;
-    magicSelect.disabled = !show;
-    magicSelect.style.display = show ? "" : "none";
-    // Oculta label inteira se não usar
-    if(magicSelect.parentElement) magicSelect.parentElement.style.display = show ? "" : "none";
-
-    if(!show){
-      magicSelect.innerHTML = "";
-      return;
-    }
-
-    const opts = taumaturgySpellsForSeq(seq);
-    const k = seqKey(seq);
-    const chosenId = state.selectedSpellBySeq[k] || (opts[0] && opts[0].id);
-    if(chosenId) state.selectedSpellBySeq[k] = chosenId;
-
-    magicSelect.innerHTML = "";
-    opts.forEach((sp)=>{
-      const o = document.createElement("option");
-      o.value = sp.id;
-      o.textContent = sp.name;
-      magicSelect.appendChild(o);
-    });
-    magicSelect.value = state.selectedSpellBySeq[k];
-    syncElementSelect(seq, currentSpellForSeq(seq));
+  if(state.mode === "volumen"){
+    const options = volumenSpellsForSeq(seq);
+    const chosenId = state.selectedSpellBySeq["volumen:"+k];
+    return options.find(s=>s.id===chosenId) || options[0] || null;
   }
+
+  return null;
+}
+
+
+  
+function syncMagicSelect(){
+  if(!magicSelect) return;
+  const seq = seqKeys();
+  const show = (state.mode === "taumaturgia" || state.mode === "volumen") && seq.length>0;
+  magicSelect.disabled = !show;
+  magicSelect.style.display = show ? "" : "none";
+  if(magicSelect.parentElement) magicSelect.parentElement.style.display = show ? "" : "none";
+
+  if(!show){
+    magicSelect.innerHTML = "";
+    return;
+  }
+
+  const k = seqKey(seq);
+  const modeKey = `${state.mode}:${k}`;
+  const opts = (state.mode === "taumaturgia") ? taumaturgySpellsForSeq(seq) : volumenSpellsForSeq(seq);
+
+  const chosenId = state.selectedSpellBySeq[modeKey] || (opts[0] && opts[0].id);
+  if(chosenId) state.selectedSpellBySeq[modeKey] = chosenId;
+
+  magicSelect.innerHTML = "";
+  opts.forEach((sp)=>{
+    const o = document.createElement("option");
+    o.value = sp.id;
+    o.textContent = sp.name;
+    magicSelect.appendChild(o);
+  });
+  magicSelect.value = state.selectedSpellBySeq[modeKey];
+
+  if(state.mode === "taumaturgia"){
+    syncElementSelect(seq, currentSpellForSeq(seq));
+  } else {
+    if(elementPill) elementPill.style.display = "none";
+    if(elementSelect) elementSelect.innerHTML = "";
+  }
+}
+
 
   // ------ Cura: combinações especiais (Taumaturgia) ------
   const HEALING = {
@@ -966,27 +1254,30 @@
       return;
     }
 
-    // Volumen: mantém o sistema de técnicas automático.
-    const action = currentActionForSeq(s);
-    if(!action){
-      actionsHint.textContent = "Nenhuma técnica encontrada (isso não deveria acontecer).";
+    
+  // Volumen: exibe a ação escolhida (via select), como um “grimório” do familiar.
+  if(state.mode === "volumen"){
+    syncMagicSelect();
+    const spell = currentSpellForSeq(s);
+    if(!spell){
+      actionsHint.textContent = "Nenhuma ação do Volumen encontrada (isso não deveria acontecer).";
       return;
     }
 
-    actionsHint.textContent = `Técnica para: ${prettySeq(s)}`;
+    actionsHint.textContent = `Ações do Volumen para: ${prettySeq(s)}`;
 
     const div = document.createElement("div");
     div.className = "actionCard selected";
     div.innerHTML = `
       <div class="actionTop">
         <div>
-          <div class="actionName">${action.name}</div>
-          <div class="actionMeta">${action.kind} • ${action.tags}</div>
+          <div class="actionName">${spell.name}</div>
+          <div class="actionMeta">${tagsLine(spell)}</div>
         </div>
         <div class="muted">${prettySeq(s)}</div>
       </div>
       <div class="reqRow">
-        ${action.req.map(k=>{
+        ${s.map(k=>{
           const c = cardByKey(k);
           return `<span class="reqPill"><img class="seqIcon" src="${c.icon}" alt="${c.label}"/>${c.label}</span>`;
         }).join("")}
@@ -994,14 +1285,17 @@
     `;
     div.addEventListener("click", ()=>{
       playClick();
-      state.selectedActionId = action.id;
       if(damageOut) damageOut.textContent = "—";
       renderResult();
     });
 
     actionsList.appendChild(div);
-    state.selectedActionId = action.id;
+    return;
   }
+
+  // Fallback (não deve ocorrer)
+  actionsHint.textContent = "Modo desconhecido.";
+}
 
   // =========================
   // Resultado
@@ -1068,18 +1362,40 @@
       return;
     }
 
-    // Volumen: mantém o sistema de técnicas automático
-    if(artsMode && artsMode.parentElement) artsMode.parentElement.style.display = "";
+    
+// Volumen: usa o seletor de ações (várias opções por sequência)
+if(state.mode === "volumen"){
+  syncMagicSelect();
+  const spell = currentSpellForSeq(s);
+  if(!spell){
+    if(resultTitle) resultTitle.textContent = "—";
+    if(resultTags) resultTags.textContent = "—";
+    if(resultText) resultText.textContent = "Ação do Volumen não encontrada.";
+    if(rollDamageBtn) rollDamageBtn.disabled = true;
+    if(executeBtn) executeBtn.disabled = true;
+    return;
+  }
 
-    const action = currentActionForSeq(s);
-    if(!action){
-      if(resultTitle) resultTitle.textContent = "—";
-      if(resultTags) resultTags.textContent = "—";
-      if(resultText) resultText.textContent = "Técnica não encontrada.";
-      if(rollDamageBtn) rollDamageBtn.disabled = true;
-      if(executeBtn) executeBtn.disabled = true;
-      return;
-    }
+  if(artsMode && artsMode.parentElement) artsMode.parentElement.style.display = "none";
+  if(elementPill) elementPill.style.display = "none";
+
+  if(resultTitle) resultTitle.textContent = spell.name;
+  if(resultTags) resultTags.textContent = `Volumen Hydrargyrum • ${tagsLine(spell)} • Sequência: ${prettySeq(s)}`;
+  if(resultText) resultText.textContent = buildVolumenSpellText(spell, s);
+
+  const rm = spell.rollMode || "none";
+  if(rollDamageBtn){
+    rollDamageBtn.dataset.mode = rm;
+    rollDamageBtn.disabled = (rm === "none");
+    rollDamageBtn.textContent =
+      (rm === "shield" || rm === "shieldArea") ? "Rolar escudo" :
+      (rm === "heal" || rm === "healArea") ? "Rolar cura" :
+      (rm === "none") ? "Rolar" : "Rolar valor";
+  }
+  if(executeBtn) executeBtn.disabled = false;
+  return;
+}
+
 
     if(resultTitle) resultTitle.textContent = action.name;
     if(resultTags) resultTags.textContent =
@@ -1279,25 +1595,25 @@
     renderResult();
   });
 
-  if(magicSelect) magicSelect.addEventListener("change", ()=>{
-    if(damageOut) damageOut.textContent = "—";
-    const s = seqKeys();
-    if(state.mode !== "taumaturgia" || s.length === 0) return;
-    const k = seqKey(s);
-    state.selectedSpellBySeq[k] = magicSelect.value;
-    renderActions();
-    renderResult();
+  
+if(magicSelect) magicSelect.addEventListener("change", ()=>{
+  if(damageOut) damageOut.textContent = "—";
+  const s = seqKeys();
+  if(s.length === 0) return;
 
+  const k = seqKey(s);
+  const modeKey = `${state.mode}:${k}`;
+  state.selectedSpellBySeq[modeKey] = magicSelect.value;
 
-  if(elementSelect) elementSelect.addEventListener("change", ()=>{
-    if(damageOut) damageOut.textContent = "—";
-    const s = seqKeys();
-    if(state.mode !== "taumaturgia" || s.length === 0) return;
-    const k = seqKey(s);
-    state.selectedElementBySeq[k] = elementSelect.value;
-    renderActions();
-    renderResult();
-  });
+  if(state.mode === "taumaturgia"){
+    const sp = currentSpellForSeq(s);
+    syncElementSelect(s, sp);
+  }
+
+  renderActions();
+  renderResult();
+});
+
   });
 
   if(rollDamageBtn) rollDamageBtn.addEventListener("click", ()=> rollValue());

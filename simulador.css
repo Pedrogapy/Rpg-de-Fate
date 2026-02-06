@@ -23,6 +23,15 @@
 html{color-scheme: dark;}
 select, option, optgroup{background-color: var(--bg2); color: var(--txt);} 
 
+/* Deixa o dropdown legível em navegadores que ignoram estilos em <option> */
+select{
+  color-scheme: dark;
+}
+select:focus{
+  outline: 2px solid rgba(202,167,255,.35);
+  outline-offset: 2px;
+}
+
 *{box-sizing:border-box}
 html,body{height:100%}
 body{

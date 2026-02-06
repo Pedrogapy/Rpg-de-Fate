@@ -1614,7 +1614,6 @@ if(magicSelect) magicSelect.addEventListener("change", ()=>{
   renderResult();
 });
 
-  });
 
   if(rollDamageBtn) rollDamageBtn.addEventListener("click", ()=> rollValue());
   if(executeBtn) executeBtn.addEventListener("click", ()=> executeAction());

@@ -29,10 +29,17 @@
     hand: [],
     seq: [],
     selectedActionId: null,
-    selectedSpellBySeq: {},
-    selectedElementBySeq: {},
-    // Taumaturgia: magia escolhida por sequência (key = "quick|arts|buster")
+    // Taumaturgia/Volumen: magia/ação escolhidas por sequência
     selectedSpellBySeq: Object.create(null),
+    selectedElementBySeq: Object.create(null),
+    // Servo (Nikola Tesla)
+    servo: {
+      active: false,
+      np: 0,
+      npTurns: 0,
+      pendingCardKey: null,
+      cooldowns: Object.create(null),
+    },
     handLimit: 7,
     mode: "taumaturgia",
   };
@@ -211,8 +218,9 @@
   // =========================
   // Sequência
   // =========================
-  function seqKeys(){ return state.seq.map(c=>c.key); }
-  function countInSeq(key){ return state.seq.reduce((acc,c)=>acc+(c.key===key?1:0), 0); }
+  // Defensive: state.seq should be a compact array of card objects, but guard against stale DOM clicks.
+  function seqKeys(){ return state.seq.filter(Boolean).map(c=>c.key); }
+  function countInSeq(key){ return state.seq.filter(Boolean).reduce((acc,c)=>acc+(c.key===key?1:0), 0); }
 
   function renderSeq(){
     if(!seqSlots) return;
